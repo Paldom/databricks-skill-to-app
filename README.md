@@ -6,24 +6,10 @@
 
 From a coding-agent skill to a Databricks App, with one governed reporting core.
 
-![The Monthly P&L report: four stat cards, a gross-margin-by-month area chart, and a by-entity table, each figure traceable to a trusted query](docs/assets/report-sample.png)
+![An agent in Omnigent running the monthly-pnl report skill: the prompt on the left, result on the right](docs/assets/omnigent-skill-run.png)
 
-*Real output from the [worked example](examples/monthly-pnl/), run against a live workspace.*
-
-One versioned directory of trusted SQL over your Unity Catalog semantic layer. A skill renders it
-as the report above; a Databricks App serves the same queries interactively; a hash gate fails the
-build the moment either copy drifts. Both draw with shadcn tokens and ECharts — the library AppKit
-itself ships — so a chart written for the report ports to the app unchanged.
-
-![An agent in Omnigent running the monthly-pnl report skill: the prompt on the left, the agent's reply giving the output path, contract monthly-pnl v1.0.0 and the 2026-08-01 watermark, and the rendered report open in the preview pane](docs/assets/omnigent-skill-run.png)
-
-*The first consumer in use: an agent reads the generated skill's `SKILL.md`, runs its bundled
-runner and renderer, and reports back the contract version and data watermark — shown here in
-Omnigent, though any Agent Skills host drives it the same way.*
-
-![The same contract served by a Databricks AppKit app, showing the same figures](docs/assets/app-sample.png)
-
-*The second consumer: an AppKit app built from the same contract — same numbers, same charts.*
+Build a report skill with `report-skill-builder` → run it to render the report → iterate →
+ship the same queries as a Databricks App with `report-to-databricks-app`.
 
 Agent Skills for [Claude Code](https://code.claude.com/docs/en/skills) (and any
 [Agent Skills](https://agentskills.io)-compatible tool). Each skill is a folder under
