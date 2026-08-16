@@ -7,6 +7,15 @@ versioning: [SemVer](https://semver.org) on the plugin manifest
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-08-16
+
+### Added
+- `license: MIT` frontmatter on every distributed skill, so the listing carries it.
+
+## [0.1.0] - 2026-08-16
+
+First public release.
+
 ### Added
 - `governed-report-contract` — authors and validates a versioned report contract (`report.yaml`,
   parametric `queries/*.sql`, metric-view bindings) with a deterministic validator

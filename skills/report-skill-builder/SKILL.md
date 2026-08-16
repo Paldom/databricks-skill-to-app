@@ -2,6 +2,7 @@
 name: report-skill-builder
 description: Generates a self-contained report skill from a validated governed report contract - materializing the trusted queries, a Statement Execution runner, and a shadcn-styled HTML report whose ECharts code ports to AppKit. Use when the user asks for a skill or slash command that produces a specific report. Not for authoring general-purpose skills, defining the contract, or building a Databricks App.
 argument-hint: <contract path> [skill folder]
+license: MIT
 ---
 
 # Report skill builder

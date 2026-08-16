@@ -2,6 +2,7 @@
 name: report-to-databricks-app
 description: Materializes a validated governed report contract into a Databricks AppKit app - copying its trusted queries into config/queries, binding metric views, and gating drift with a hash manifest. Use when a report skill or contract should become an app, or the app's SQL has drifted from the report. Not for scaffolding an unrelated app, app UI design, or bundle deployment.
 argument-hint: <contract path> [app path]
+license: MIT
 ---
 
 # Report contract → Databricks App

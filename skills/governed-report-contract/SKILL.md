@@ -2,6 +2,7 @@
 name: governed-report-contract
 description: Defines and validates a versioned governed report contract - report.yaml plus parametric trusted queries and metric-view bindings - so a report returns the same numbers in a skill, a script and a Databricks App. Use when the user wants trusted, pinned or reproducible report queries, or to validate one. Not for creating metric views, Genie agents, AI/BI dashboards or app scaffolding.
 argument-hint: <report name or contract path>
+license: MIT
 ---
 
 # Governed report contract
