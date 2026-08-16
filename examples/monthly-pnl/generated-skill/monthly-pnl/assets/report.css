@@ -1,0 +1,144 @@
+/* Governed report design system — shadcn/ui tokens, Recharts charts.
+ *
+ * This deliberately mirrors what the Databricks App consumer already is: React, Recharts, and
+ * shadcn's token names. A chart written here moves to AppKit by deleting the CDN script tags —
+ * the component code is the same. That is the reason for the shape of this file.
+ *
+ * Colour does two jobs and no others: blue for the business, red for money leaving. Direction is
+ * never encoded by colour alone — every figure carries a sign and an arrow too.
+ */
+
+:root{
+  --radius:0.625rem;
+  --background:oklch(1 0 0);
+  --foreground:oklch(0.145 0 0);
+  --card:oklch(1 0 0);
+  --card-foreground:oklch(0.145 0 0);
+  --muted:oklch(0.97 0 0);
+  --muted-foreground:oklch(0.556 0 0);
+  --border:oklch(0.922 0 0);
+  --primary:oklch(0.205 0 0);
+  --chart-1:oklch(0.546 0.215 262.9);   /* blue — the result */
+  --chart-2:oklch(0.72 0.16 258);       /* blue — subtotals */
+  --chart-3:oklch(0.874 0.06 258);      /* blue — opening stock */
+  --destructive:oklch(0.577 0.245 27.325);
+  --destructive-soft:oklch(0.72 0.17 25);
+  --up:oklch(0.546 0.215 262.9);
+  --down:oklch(0.577 0.245 27.325);
+}
+
+@media (prefers-color-scheme:dark){
+  :root{
+    --background:oklch(0.145 0 0); --foreground:oklch(0.985 0 0);
+    --card:oklch(0.205 0 0); --card-foreground:oklch(0.985 0 0);
+    --muted:oklch(0.269 0 0); --muted-foreground:oklch(0.708 0 0);
+    --border:oklch(1 0 0 / 12%); --primary:oklch(0.985 0 0);
+    --chart-1:oklch(0.68 0.19 262.9); --chart-2:oklch(0.58 0.17 258);
+    --chart-3:oklch(0.42 0.11 258);
+    --destructive:oklch(0.704 0.191 22.216); --destructive-soft:oklch(0.55 0.16 25);
+    --up:oklch(0.68 0.19 262.9); --down:oklch(0.704 0.191 22.216);
+  }
+}
+
+*{box-sizing:border-box; min-width:0}
+html{background:var(--background)}
+body{
+  margin:0; min-height:100vh; padding:clamp(16px,2vw,28px);
+  background:var(--background); color:var(--foreground);
+  font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  font-size:14px; line-height:1.5;
+  font-variant-numeric:tabular-nums lining-nums;
+  -webkit-font-smoothing:antialiased;
+}
+.dash{max-width:1840px; margin:0 auto; display:flex; flex-direction:column; gap:clamp(10px,1vw,14px)}
+.sr-only{position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0);
+  clip-path:inset(50%); white-space:nowrap}
+
+/* ---------- page header ---------- */
+
+.page-head{display:flex; align-items:flex-start; justify-content:space-between; gap:16px; flex-wrap:wrap}
+.page-head h1{margin:0; font-size:22px; font-weight:600; letter-spacing:-.02em}
+.page-head p{margin:2px 0 0; font-size:14px; color:var(--muted-foreground)}
+
+/* Freshness as a 12-segment spine: the filled run is the data you actually have. */
+.timeframe{display:grid; justify-items:end; gap:6px}
+.tf-dates{margin:0; font-size:14px; color:var(--muted-foreground)}
+.tf-spine{display:flex; gap:3px; width:min(260px,42vw)}
+.tf-seg{flex:1; height:5px; border-radius:1px; background:var(--border)}
+.tf-seg.on{background:var(--chart-3)}
+.tf-seg.now{background:var(--chart-1)}
+.tf-note{margin:0; font-size:12px; color:var(--muted-foreground)}
+.tf-note.stale{color:var(--destructive); font-weight:600}
+
+/* ---------- Card ---------- */
+
+.card{
+  background:var(--card); color:var(--card-foreground);
+  border:1px solid var(--border); border-radius:var(--radius);
+  box-shadow:0 1px 2px 0 oklch(0 0 0 / .05);
+  display:flex; flex-direction:column; gap:5px;
+  padding:clamp(12px,1.1vw,16px) clamp(14px,1.2vw,18px);
+}
+/* <p> carries a default 1em margin and it does NOT collapse inside a flex column. */
+.card-desc,.card-title,.stat{margin:0}
+.card-desc{font-size:14px; color:var(--muted-foreground)}
+.card-title{font-size:15px; font-weight:600; letter-spacing:-.01em}
+.stat{font-size:clamp(21px,1.7vw,27px); font-weight:600; letter-spacing:-.02em; line-height:1.1}
+
+.badge{
+  display:inline-flex; align-items:center; gap:4px; width:fit-content;
+  padding:2px 8px; border-radius:999px; border:1px solid var(--border);
+  font-size:12px; font-weight:500; line-height:1.4;
+}
+.badge.up{color:var(--up)}
+.badge.down{color:var(--down)}
+.badge.warn{color:var(--destructive); border-color:color-mix(in oklch,var(--destructive) 40%,transparent)}
+
+.grid-stats{display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:clamp(12px,1.2vw,18px)}
+.grid-main{display:grid; grid-template-columns:1fr; gap:clamp(12px,1.2vw,18px)}
+@media (min-width:1100px){ .grid-main{grid-template-columns:repeat(auto-fit,minmax(430px,1fr))} }
+
+/* ---------- charts ---------- */
+
+.chart-box{height:clamp(180px,34vh,420px); margin-top:8px}
+/* If the chart runtime is unavailable the slot would be silently blank — say so instead. */
+.chart-fallback{display:flex; align-items:center; height:100%; margin:0;
+  font-size:14px; color:var(--destructive)}
+
+/* ---------- the AI sentence: a note, not a widget ---------- */
+
+.insight{margin:10px 0 0; font-size:14px; line-height:1.5; color:var(--foreground)}
+.insight-mark{font-size:11px; font-weight:700; letter-spacing:.08em;
+  color:var(--muted-foreground); margin-right:6px; vertical-align:1px}
+
+/* ---------- Table ---------- */
+
+.table-wrap{overflow-x:auto; margin-top:4px}
+table{width:100%; border-collapse:collapse; font-size:14px}
+th{text-align:right; font-weight:500; color:var(--muted-foreground);
+  padding:8px 0 8px 16px; white-space:nowrap; border-bottom:1px solid var(--border)}
+th:first-child{text-align:left; padding-left:0}
+td{text-align:right; padding:10px 0 10px 16px; border-bottom:1px solid var(--border); white-space:nowrap}
+td:first-child{text-align:left; padding-left:0; font-weight:500}
+tbody tr:last-child td{border-bottom:0}
+td.neg{color:var(--destructive)}
+
+/* ---------- states: a word plus a fill, never colour alone ---------- */
+
+.block-error{
+  border-color:color-mix(in oklch,var(--destructive) 45%,var(--border));
+  background:color-mix(in oklch,var(--destructive) 6%,var(--card));
+}
+.block-error code{font-size:13px; word-break:break-word; color:var(--foreground)}
+.flag{font-weight:700; margin-right:6px}
+.empty{color:var(--muted-foreground); font-style:italic; margin:0}
+.alert{margin:6px 0 0; font-size:13px; font-weight:600; color:var(--destructive)}
+.note{margin:10px 0 0; font-size:13px; color:var(--muted-foreground)}
+
+/* ---------- print ---------- */
+
+@media print{
+  @page{size:landscape; margin:10mm}
+  body{min-height:0; padding:0; print-color-adjust:exact; -webkit-print-color-adjust:exact}
+  .card{box-shadow:none; break-inside:avoid; page-break-inside:avoid}
+}

@@ -1,0 +1,67 @@
+{
+  "skill": "report-skill-builder",
+  "cases": [
+    { "type": "should_trigger", "prompt": "create a skill that generates our monthly P&L report" },
+    { "type": "should_trigger", "prompt": "turn the pnl contract into a report skill" },
+    { "type": "should_trigger", "prompt": "I want a /monthly-pnl command that produces the report as HTML" },
+    { "type": "should_trigger", "prompt": "generate a report skill from reports/monthly-pnl" },
+    { "type": "should_trigger", "prompt": "scaffold a report-generating skill bound to my trusted queries" },
+    { "type": "should_trigger", "prompt": "build me a skill that renders the P&L as a one-page html report" },
+    { "type": "should_trigger", "prompt": "we need a repeatable skill that spits out the board report every month" },
+    { "type": "should_trigger", "prompt": "wrap our governed report in a slash command" },
+    { "type": "should_trigger", "prompt": "make a skill out of this report contract pls" },
+    { "type": "should_trigger", "prompt": "regenerate the P&L report skill, its output reads like a document instead of a dashboard" },
+
+    { "type": "should_not_trigger", "prompt": "add a skill for reviewing pull requests" },
+    { "type": "should_not_trigger", "prompt": "create a skill that lints our python code" },
+    { "type": "should_not_trigger", "prompt": "improve the triggering of my existing skill" },
+    { "type": "should_not_trigger", "prompt": "validate my report contract" },
+    { "type": "should_not_trigger", "prompt": "turn my report skill into a databricks app" },
+    { "type": "should_not_trigger", "prompt": "build an AI/BI dashboard for the P&L" },
+    { "type": "should_not_trigger", "prompt": "write the SQL for the P&L report" },
+    { "type": "should_not_trigger", "prompt": "create a metric view for P&L" },
+    { "type": "should_not_trigger", "prompt": "restyle our marketing landing page" },
+    { "type": "should_not_trigger", "prompt": "pick a colour palette for these charts" },
+    { "type": "should_not_trigger", "prompt": "export this dashboard to PDF and email it" },
+
+    {
+      "type": "quality",
+      "prompt": "generate a report skill from reports/monthly-pnl",
+      "expected_behavior": [
+        "validates the contract first and refuses to generate from an invalid one",
+        "creates a skill folder containing a materialized copy of the contract plus a hash manifest recording the contract version",
+        "writes a runner that binds the contract's declared parameters instead of interpolating them into SQL",
+        "produces evals.json for the generated skill, not just a SKILL.md"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "the generated report looks like a wall of text - make it look like a dashboard",
+      "expected_behavior": [
+        "keeps each block's copy to a headline number plus at most a sentence or two",
+        "applies the bundled design tokens rather than inventing new colors or fonts",
+        "keeps the output a single self-contained HTML file with no CDN or external font requests",
+        "does not add a JavaScript charting library"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "add a short AI summary to the top of the report",
+      "expected_behavior": [
+        "labels the text as AI-generated and attaches provenance naming the block and as-of watermark it came from",
+        "keeps the summary to a couple of sentences rather than paragraphs",
+        "HTML-escapes the summary and every value interpolated into the page",
+        "does not let the summary state numbers that are absent from the query results"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "make the report skill work for last quarter instead of last month",
+      "expected_behavior": [
+        "changes the parameter values passed to the existing contract queries rather than editing the SQL inside the generated skill",
+        "notes that editing the materialized copy breaks the hash manifest and must be done in the canonical contract",
+        "re-materializes the generated skill from the contract after the change"
+      ]
+    }
+  ]
+}

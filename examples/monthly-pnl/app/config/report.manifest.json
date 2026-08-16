@@ -1,0 +1,12 @@
+{
+  "contract": "monthly-pnl",
+  "contract_version": "1.0.0",
+  "source": "/Users/dpal/skills/databricks-skill-to-app/examples/monthly-pnl/reports/monthly-pnl",
+  "files": {
+    "queries/data_watermark.sql": "de167e0ef8969246c3c80abc24de0fcac3032aa6aab8e7ff9f9ff466a469c8f5",
+    "queries/margin_trend.sql": "1afd8b1a9fd2cb46bb0053a688c85fb37b68937803f7cbd7e1b2fc36ddccc1a7",
+    "queries/pnl_by_entity.sql": "bf16abf000f7e36474e2b366a866018d23f7262ffa4bb50bfd5d66a49b4b238a",
+    "queries/pnl_summary.sql": "9e187b1ed1a41e52198ee03a99bcf2fc089cbd76f8ec5c676a7b4374f4e08eef",
+    "metric-views/definitions.json": "505a988eb0c2d8cca23d76b93958b9d27e5f2954a2d8f6c3324f76aa30fa7590"
+  }
+}

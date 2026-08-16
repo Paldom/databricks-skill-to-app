@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- One chart runtime, no framework. ECharts is the library AppKit itself ships, so the report
+     and the app draw the same way; the `simple` build carries line and bar only. Pinned exactly —
+     a floating version would change the report under you.
+     Charts need the network; figures, tables, states and provenance do not. -->
+<meta http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'unsafe-inline' https://unpkg.com; style-src 'unsafe-inline'; connect-src 'none'">
+<title>Monthly P&amp;L</title>
+<script crossorigin src="https://unpkg.com/echarts@6.0.0/dist/echarts.simple.min.js"></script>
+<style>
+/* Governed report design system — shadcn/ui tokens, Recharts charts.
+ *
+ * This deliberately mirrors what the Databricks App consumer already is: React, Recharts, and
+ * shadcn's token names. A chart written here moves to AppKit by deleting the CDN script tags —
+ * the component code is the same. That is the reason for the shape of this file.
+ *
+ * Colour does two jobs and no others: blue for the business, red for money leaving. Direction is
+ * never encoded by colour alone — every figure carries a sign and an arrow too.
+ */
+
+:root{
+  --radius:0.625rem;
+  --background:oklch(1 0 0);
+  --foreground:oklch(0.145 0 0);
+  --card:oklch(1 0 0);
+  --card-foreground:oklch(0.145 0 0);
+  --muted:oklch(0.97 0 0);
+  --muted-foreground:oklch(0.556 0 0);
+  --border:oklch(0.922 0 0);
+  --primary:oklch(0.205 0 0);
+  --chart-1:oklch(0.546 0.215 262.9);   /* blue — the result */
+  --chart-2:oklch(0.72 0.16 258);       /* blue — subtotals */
+  --chart-3:oklch(0.874 0.06 258);      /* blue — opening stock */
+  --destructive:oklch(0.577 0.245 27.325);
+  --destructive-soft:oklch(0.72 0.17 25);
+  --up:oklch(0.546 0.215 262.9);
+  --down:oklch(0.577 0.245 27.325);
+}
+
+@media (prefers-color-scheme:dark){
+  :root{
+    --background:oklch(0.145 0 0); --foreground:oklch(0.985 0 0);
+    --card:oklch(0.205 0 0); --card-foreground:oklch(0.985 0 0);
+    --muted:oklch(0.269 0 0); --muted-foreground:oklch(0.708 0 0);
+    --border:oklch(1 0 0 / 12%); --primary:oklch(0.985 0 0);
+    --chart-1:oklch(0.68 0.19 262.9); --chart-2:oklch(0.58 0.17 258);
+    --chart-3:oklch(0.42 0.11 258);
+    --destructive:oklch(0.704 0.191 22.216); --destructive-soft:oklch(0.55 0.16 25);
+    --up:oklch(0.68 0.19 262.9); --down:oklch(0.704 0.191 22.216);
+  }
+}
+
+*{box-sizing:border-box; min-width:0}
+html{background:var(--background)}
+body{
+  margin:0; min-height:100vh; padding:clamp(16px,2vw,28px);
+  background:var(--background); color:var(--foreground);
+  font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  font-size:14px; line-height:1.5;
+  font-variant-numeric:tabular-nums lining-nums;
+  -webkit-font-smoothing:antialiased;
+}
+.dash{max-width:1840px; margin:0 auto; display:flex; flex-direction:column; gap:clamp(10px,1vw,14px)}
+.sr-only{position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0);
+  clip-path:inset(50%); white-space:nowrap}
+
+/* ---------- page header ---------- */
+
+.page-head{display:flex; align-items:flex-start; justify-content:space-between; gap:16px; flex-wrap:wrap}
+.page-head h1{margin:0; font-size:22px; font-weight:600; letter-spacing:-.02em}
+.page-head p{margin:2px 0 0; font-size:14px; color:var(--muted-foreground)}
+
+/* Freshness as a 12-segment spine: the filled run is the data you actually have. */
+.timeframe{display:grid; justify-items:end; gap:6px}
+.tf-dates{margin:0; font-size:14px; color:var(--muted-foreground)}
+.tf-spine{display:flex; gap:3px; width:min(260px,42vw)}
+.tf-seg{flex:1; height:5px; border-radius:1px; background:var(--border)}
+.tf-seg.on{background:var(--chart-3)}
+.tf-seg.now{background:var(--chart-1)}
+.tf-note{margin:0; font-size:12px; color:var(--muted-foreground)}
+.tf-note.stale{color:var(--destructive); font-weight:600}
+
+/* ---------- Card ---------- */
+
+.card{
+  background:var(--card); color:var(--card-foreground);
+  border:1px solid var(--border); border-radius:var(--radius);
+  box-shadow:0 1px 2px 0 oklch(0 0 0 / .05);
+  display:flex; flex-direction:column; gap:5px;
+  padding:clamp(12px,1.1vw,16px) clamp(14px,1.2vw,18px);
+}
+/* <p> carries a default 1em margin and it does NOT collapse inside a flex column. */
+.card-desc,.card-title,.stat{margin:0}
+.card-desc{font-size:14px; color:var(--muted-foreground)}
+.card-title{font-size:15px; font-weight:600; letter-spacing:-.01em}
+.stat{font-size:clamp(21px,1.7vw,27px); font-weight:600; letter-spacing:-.02em; line-height:1.1}
+
+.badge{
+  display:inline-flex; align-items:center; gap:4px; width:fit-content;
+  padding:2px 8px; border-radius:999px; border:1px solid var(--border);
+  font-size:12px; font-weight:500; line-height:1.4;
+}
+.badge.up{color:var(--up)}
+.badge.down{color:var(--down)}
+.badge.warn{color:var(--destructive); border-color:color-mix(in oklch,var(--destructive) 40%,transparent)}
+
+.grid-stats{display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:clamp(12px,1.2vw,18px)}
+.grid-main{display:grid; grid-template-columns:1fr; gap:clamp(12px,1.2vw,18px)}
+@media (min-width:1100px){ .grid-main{grid-template-columns:repeat(auto-fit,minmax(430px,1fr))} }
+
+/* ---------- charts ---------- */
+
+.chart-box{height:clamp(180px,34vh,420px); margin-top:8px}
+/* If the chart runtime is unavailable the slot would be silently blank — say so instead. */
+.chart-fallback{display:flex; align-items:center; height:100%; margin:0;
+  font-size:14px; color:var(--destructive)}
+
+/* ---------- the AI sentence: a note, not a widget ---------- */
+
+.insight{margin:10px 0 0; font-size:14px; line-height:1.5; color:var(--foreground)}
+.insight-mark{font-size:11px; font-weight:700; letter-spacing:.08em;
+  color:var(--muted-foreground); margin-right:6px; vertical-align:1px}
+
+/* ---------- Table ---------- */
+
+.table-wrap{overflow-x:auto; margin-top:4px}
+table{width:100%; border-collapse:collapse; font-size:14px}
+th{text-align:right; font-weight:500; color:var(--muted-foreground);
+  padding:8px 0 8px 16px; white-space:nowrap; border-bottom:1px solid var(--border)}
+th:first-child{text-align:left; padding-left:0}
+td{text-align:right; padding:10px 0 10px 16px; border-bottom:1px solid var(--border); white-space:nowrap}
+td:first-child{text-align:left; padding-left:0; font-weight:500}
+tbody tr:last-child td{border-bottom:0}
+td.neg{color:var(--destructive)}
+
+/* ---------- states: a word plus a fill, never colour alone ---------- */
+
+.block-error{
+  border-color:color-mix(in oklch,var(--destructive) 45%,var(--border));
+  background:color-mix(in oklch,var(--destructive) 6%,var(--card));
+}
+.block-error code{font-size:13px; word-break:break-word; color:var(--foreground)}
+.flag{font-weight:700; margin-right:6px}
+.empty{color:var(--muted-foreground); font-style:italic; margin:0}
+.alert{margin:6px 0 0; font-size:13px; font-weight:600; color:var(--destructive)}
+.note{margin:10px 0 0; font-size:13px; color:var(--muted-foreground)}
+
+/* ---------- print ---------- */
+
+@media print{
+  @page{size:landscape; margin:10mm}
+  body{min-height:0; padding:0; print-color-adjust:exact; -webkit-print-color-adjust:exact}
+  .card{box-shadow:none; break-inside:avoid; page-break-inside:avoid}
+}
+
+</style>
+</head>
+<body>
+<div class="dash">
+  <div class="page-head">
+    <div>
+      <h1>Monthly P&amp;L</h1>
+      <p>start_date 2025-09-01 · end_date 2026-08-01 · row_limit 10</p>
+    </div>
+    <div class="timeframe"><p class="tf-dates">Sep 2025 — Aug 2026</p><span class="tf-spine" role="img" aria-label="Data covers 12 of 12 months, complete through Aug 2026"><span class="tf-seg on"></span><span class="tf-seg on"></span><span class="tf-seg on"></span><span class="tf-seg on"></span><span class="tf-seg on"></span><span class="tf-seg on"></span><span class="tf-seg on"></span><span class="tf-seg on"></span><span class="tf-seg on"></span><span class="tf-seg on"></span><span class="tf-seg on"></span><span class="tf-seg now"></span></span><p class="tf-note">complete through Aug 2026</p></div>
+  </div>
+  <div class="grid-stats"><div class="card"><p class="card-desc">Revenue</p><p class="stat">65,455,683</p></div><div class="card"><p class="card-desc">Gross profit</p><p class="stat">28,660,769</p></div><div class="card"><p class="card-desc">Gross margin %</p><p class="stat">43.8</p></div><div class="card"><p class="card-desc">Net result</p><p class="stat">9,192,554</p></div></div><div class="grid-main"><div class="card"><p class="card-title">Gross margin by month</p><div class="chart-box"><div id="chart-margin_trend" style="height:100%"><p class="chart-fallback">Chart runtime unavailable — this file needs a network connection to draw plots. The figures are in the table blocks.</p></div></div><p class="note">Axis spans 40 to 50, not zero-based.</p><p class="insight"><span class="insight-mark" aria-hidden="true">AI</span><span class="sr-only">AI-generated summary: </span>Margin held inside a 4.8 point band all year, bottoming in January before seven straight months of recovery.</p></div><div class="card"><p class="card-title">Result by entity</p><div class="table-wrap"><table><thead><tr><th>Entity</th><th>Revenue</th><th>Gross margin %</th><th>Net result</th></tr></thead><tbody><tr><td>EMEA</td><td>22,038,950</td><td>45.0</td><td>3,478,224</td></tr><tr><td>AMER</td><td>29,752,583</td><td>41.1</td><td>3,002,383</td></tr><tr><td>APAC</td><td>13,664,149</td><td>47.7</td><td>2,711,947</td></tr></tbody></table></div><p class="insight"><span class="insight-mark" aria-hidden="true">AI</span><span class="sr-only">AI-generated summary: </span>AMER books the most revenue on the thinnest margin; APAC earns the widest margin on the smallest book.</p></div></div>
+</div>
+
+<script id="chart-data" type="application/json">{"chart-margin_trend":{"type":"area","xKey":"month","series":[{"key":"gross_margin_pct","label":"Gross margin %"}],"data":[{"month":"2025-09","gross_margin_pct":44.3},{"month":"2025-10","gross_margin_pct":43.4},{"month":"2025-11","gross_margin_pct":42.6},{"month":"2025-12","gross_margin_pct":42.0},{"month":"2026-01","gross_margin_pct":41.9},{"month":"2026-02","gross_margin_pct":42.1},{"month":"2026-03","gross_margin_pct":42.7},{"month":"2026-04","gross_margin_pct":43.5},{"month":"2026-05","gross_margin_pct":44.5},{"month":"2026-06","gross_margin_pct":45.4},{"month":"2026-07","gross_margin_pct":46.2},{"month":"2026-08","gross_margin_pct":46.7}],"domain":[40,50]}}</script>
+<script>
+/* Renders every chart block with Apache ECharts, from the JSON the renderer embedded.
+ *
+ * ECharts is what AppKit itself ships (@databricks/appkit-ui depends on echarts and
+ * echarts-for-react), so the report and the Databricks App draw with the same library. It also
+ * needs no framework: one script instead of React + ReactDOM + prop-types + a chart lib.
+ *
+ * The option objects below are plain data. Hand the same `option` to <ReactECharts option={...} />
+ * inside AppKit and you get the identical chart — that is the port.
+ *
+ * Two settings are load-bearing rather than cosmetic:
+ *   animation:false — an animated series is mid-flight when a screenshot, print or PDF is taken,
+ *     so a static capture of an animated chart is a blank or half-drawn chart.
+ *   axis label fontSize 15 — chart libraries default to ~12px, under the legibility floor.
+ */
+(function () {
+  var slot = document.getElementById("chart-data");
+  if (!slot || !window.echarts) return;   // fallback text stays in place
+
+  var specs;
+  try {
+    specs = JSON.parse(slot.textContent);
+  } catch (e) {
+    return;
+  }
+
+  var css = getComputedStyle(document.documentElement);
+  var v = function (name) { return css.getPropertyValue(name).trim(); };
+  var INK = v("--foreground"), MUTED = v("--muted-foreground"),
+      LINE = v("--border"), CARD = v("--card"),
+      C1 = v("--chart-1"), C2 = v("--chart-2"), C3 = v("--chart-3");
+
+  var AXIS_LABEL = { fontSize: 15, color: MUTED, hideOverlap: true };
+  var textStyle = { fontFamily: "ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Arial" };
+
+  function baseOption(spec) {
+    return {
+      animation: false,
+      textStyle: textStyle,
+      grid: { left: 8, right: 16, top: 12, bottom: 8, containLabel: true },
+      tooltip: {
+        trigger: "axis",
+        backgroundColor: CARD,
+        borderColor: LINE,
+        borderWidth: 1,
+        textStyle: { color: INK, fontSize: 14 },
+        extraCssText: "border-radius:8px; box-shadow:0 1px 2px 0 rgba(0,0,0,.05);"
+      },
+      xAxis: {
+        type: "category",
+        data: spec.data.map(function (d) { return d[spec.xKey]; }),
+        axisLine: { show: false },          // shadcn convention: no axis line, no tick marks
+        axisTick: { show: false },
+        axisLabel: AXIS_LABEL,
+        boundaryGap: spec.type === "bar"
+      },
+      yAxis: {
+        type: "value",
+        min: spec.domain ? spec.domain[0] : null,
+        max: spec.domain ? spec.domain[1] : null,
+        axisLine: { show: false },
+        axisTick: { show: false },
+        axisLabel: AXIS_LABEL,
+        splitLine: { lineStyle: { color: LINE, type: "dashed" } }   // horizontal grid only
+      }
+    };
+  }
+
+  function seriesFor(spec, colors) {
+    return spec.series.map(function (s, i) {
+      var color = colors[i % colors.length];
+      var values = spec.data.map(function (d) {
+        return d[s.key] === undefined ? null : d[s.key];
+      });
+      if (spec.type === "bar") {
+        return {
+          name: s.label, type: "bar", data: values,
+          itemStyle: { color: color, borderRadius: [4, 4, 0, 0] },
+          barMaxWidth: 64
+        };
+      }
+      return {
+        name: s.label, type: "line", data: values, smooth: true, showSymbol: false,
+        lineStyle: { color: color, width: 2 },
+        itemStyle: { color: color },
+        areaStyle: {
+          color: {
+            type: "linear", x: 0, y: 0, x2: 0, y2: 1,
+            colorStops: [
+              { offset: 0, color: color },
+              { offset: 1, color: color }
+            ]
+          },
+          opacity: 0.18
+        }
+      };
+    });
+  }
+
+  var charts = [];
+  Object.keys(specs).forEach(function (id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    var spec = specs[id];
+    el.textContent = "";
+    var chart = echarts.init(el, null, { renderer: "svg" });   // SVG prints and scales cleanly
+    var option = baseOption(spec);
+    option.series = seriesFor(spec, [C1, C2, C3]);
+    chart.setOption(option);
+    charts.push(chart);
+  });
+
+  window.addEventListener("resize", function () {
+    charts.forEach(function (c) { c.resize(); });
+  });
+})();
+
+</script>
+<!-- provenance {"contract": "monthly-pnl v1.0.0", "owner": "finance-analytics@example.com", "generated_at": "2026-08-14T13:00:24+00:00", "warehouse": "<warehouse-id>", "executed_as": "analyst@example.com", "watermark": "2026-08-01", "blocks": {"pnl_summary": "certified/service_principal/ok", "margin_trend": "certified/service_principal/ok", "pnl_by_entity": "certified/service_principal/ok", "data_watermark": "certified/service_principal/ok"}} -->
+</body>
+</html>

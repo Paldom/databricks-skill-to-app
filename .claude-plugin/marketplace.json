@@ -1,0 +1,15 @@
+{
+  "name": "databricks-skill-to-app",
+  "owner": {
+    "name": "Paldom",
+    "url": "https://github.com/Paldom"
+  },
+  "plugins": [
+    {
+      "name": "databricks-skill-to-app",
+      "source": ".",
+      "description": "Agent Skills for promoting a Claude Code reporting skill into a Databricks App: one governed reporting core shared by both, Unity Catalog governance, and Databricks Apps deployment.",
+      "category": "development"
+    }
+  ]
+}

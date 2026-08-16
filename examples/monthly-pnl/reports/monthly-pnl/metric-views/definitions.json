@@ -1,0 +1,6 @@
+{
+  "$schema": "https://databricks.github.io/appkit/schemas/metric-source.schema.json",
+  "metricViews": {
+    "pnl": { "source": "demo.pnl_demo.pnl_metrics" }
+  }
+}

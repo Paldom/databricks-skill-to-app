@@ -1,0 +1,96 @@
+{
+  "skill": "monthly-pnl",
+  "cases": [
+    {
+      "type": "should_trigger",
+      "prompt": "generate the monthly p&l"
+    },
+    {
+      "type": "should_trigger",
+      "prompt": "run the monthly p&l for last month"
+    },
+    {
+      "type": "should_trigger",
+      "prompt": "can I get the monthly p&l as html?"
+    },
+    {
+      "type": "should_trigger",
+      "prompt": "refresh the monthly p&l, the numbers look stale"
+    },
+    {
+      "type": "should_trigger",
+      "prompt": "i need this period's monthly p&l figures"
+    },
+    {
+      "type": "should_trigger",
+      "prompt": "monthly p&l pls"
+    },
+    {
+      "type": "should_trigger",
+      "prompt": "re-run the monthly p&l with a wider date range"
+    },
+    {
+      "type": "should_trigger",
+      "prompt": "send me the latest monthly p&l report"
+    },
+    {
+      "type": "should_not_trigger",
+      "prompt": "change how the monthly p&l calculates margin"
+    },
+    {
+      "type": "should_not_trigger",
+      "prompt": "add a new metric to the monthly p&l"
+    },
+    {
+      "type": "should_not_trigger",
+      "prompt": "turn the monthly p&l into a databricks app"
+    },
+    {
+      "type": "should_not_trigger",
+      "prompt": "build a dashboard for the monthly p&l"
+    },
+    {
+      "type": "should_not_trigger",
+      "prompt": "what tables are in the finance schema?"
+    },
+    {
+      "type": "should_not_trigger",
+      "prompt": "write a SQL query for revenue by region"
+    },
+    {
+      "type": "should_not_trigger",
+      "prompt": "validate our report contract"
+    },
+    {
+      "type": "should_not_trigger",
+      "prompt": "create a metric view"
+    },
+    {
+      "type": "quality",
+      "prompt": "generate the monthly p&l",
+      "expected_behavior": [
+        "runs the bundled runner against the materialized contract instead of writing new SQL",
+        "writes one self-contained HTML file and gives the user its path",
+        "states the contract version, the data watermark and the attested principal",
+        "flags any block that failed or came back partial instead of omitting it"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "summarise what changed in the monthly p&l",
+      "expected_behavior": [
+        "keeps each summary to at most two sentences",
+        "only cites numbers that appear in the block's rows",
+        "labels the text as AI-generated with its provenance"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "the monthly p&l data looks old, is it?",
+      "expected_behavior": [
+        "reads the freshness watermark from the envelope rather than the generation timestamp",
+        "compares it against the contract's max_lag and says plainly whether it is stale"
+      ]
+    }
+  ]
+}

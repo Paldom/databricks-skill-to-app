@@ -1,0 +1,67 @@
+{
+  "skill": "report-to-databricks-app",
+  "cases": [
+    { "type": "should_trigger", "prompt": "turn my report skill into a databricks app" },
+    { "type": "should_trigger", "prompt": "promote the monthly P&L contract into an app" },
+    { "type": "should_trigger", "prompt": "I want an interactive version of the P&L report on Databricks Apps" },
+    { "type": "should_trigger", "prompt": "make an appkit app that uses the same trusted queries as our report" },
+    { "type": "should_trigger", "prompt": "our report skill works, now put it in front of the finance team as an app" },
+    { "type": "should_trigger", "prompt": "wire the report contract into config/queries for the app" },
+    { "type": "should_trigger", "prompt": "the app's SQL has drifted from the contract, sort it out" },
+    { "type": "should_trigger", "prompt": "build the databricks app from reports/monthly-pnl" },
+    { "type": "should_trigger", "prompt": "the app and the report disagree on revenue - make them share the queries" },
+    { "type": "should_trigger", "prompt": "ship the governed report as an app pls" },
+
+    { "type": "should_not_trigger", "prompt": "create a databricks app that lets users submit expense claims" },
+    { "type": "should_not_trigger", "prompt": "design the KPI layout for my app" },
+    { "type": "should_not_trigger", "prompt": "scaffold a streamlit app on databricks" },
+    { "type": "should_not_trigger", "prompt": "build an AI/BI dashboard for revenue" },
+    { "type": "should_not_trigger", "prompt": "generate a report skill from my contract" },
+    { "type": "should_not_trigger", "prompt": "validate my report contract" },
+    { "type": "should_not_trigger", "prompt": "deploy my bundle to the prod target" },
+    { "type": "should_not_trigger", "prompt": "add a genie chat panel to my app" },
+    { "type": "should_not_trigger", "prompt": "my databricks app is slow to load" },
+    { "type": "should_not_trigger", "prompt": "create a metric view for the finance schema" },
+
+    {
+      "type": "quality",
+      "prompt": "turn reports/monthly-pnl into a databricks app",
+      "expected_behavior": [
+        "validates the contract before touching the app",
+        "copies the contract's SQL into config/queries verbatim instead of rewriting it for the app",
+        "preserves the .obo.sql suffix so per-user blocks keep executing on behalf of the user",
+        "writes a manifest recording the contract version and per-file hashes",
+        "delegates scaffolding to databricks-apps and the screen design to databricks-app-design rather than inventing either"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "the app shows different numbers than the report",
+      "expected_behavior": [
+        "runs the drift check against the manifest as the first diagnostic step",
+        "compares the app's copied SQL to the contract rather than debugging the UI",
+        "checks whether the two ran under different execution identities before assuming a bug",
+        "re-materializes from the contract instead of hand-patching the app's copy"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "add a region filter to the app",
+      "expected_behavior": [
+        "adds the parameter in the canonical contract and re-materializes, rather than editing config/queries directly",
+        "declares the parameter with a -- @param annotation and binds it with the matching sql.* helper",
+        "uses a companion boolean or a proven sentinel for the unfiltered case rather than an empty string on a date",
+        "re-runs type generation after the SQL changes"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "our CI should fail if someone edits the app's SQL by hand",
+      "expected_behavior": [
+        "adds the materializer's check mode to CI so it exits non-zero on drift",
+        "explains that committed generated types and the hash manifest are what make the gate meaningful",
+        "does not rely on code review alone to catch the edit"
+      ]
+    }
+  ]
+}

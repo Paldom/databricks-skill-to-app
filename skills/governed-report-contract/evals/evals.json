@@ -1,0 +1,80 @@
+{
+  "skill": "governed-report-contract",
+  "cases": [
+    { "type": "should_trigger", "prompt": "set up a governed report contract for our monthly P&L" },
+    { "type": "should_trigger", "prompt": "I need the same numbers in our report skill and our app - how do I define the queries once?" },
+    { "type": "should_trigger", "prompt": "add a report.yaml and trusted queries for the revenue report" },
+    { "type": "should_trigger", "prompt": "validate my report contract before I ship it" },
+    { "type": "should_trigger", "prompt": "our agent keeps writing ad-hoc SQL for the finance report, i want versioned trusted queries instead" },
+    { "type": "should_trigger", "prompt": "make the board report reproducible - pin the queries, params and row caps" },
+    { "type": "should_trigger", "prompt": "are these report queries portable between the statement execution api and appkit?" },
+    { "type": "should_trigger", "prompt": "define the trusted queries behind our board report on top of main.finance.pnl_metrics" },
+    { "type": "should_trigger", "prompt": "why does my report show different revenue than the app? lock the definitions down" },
+    { "type": "should_trigger", "prompt": "govern the sql behind our quarterly report pls" },
+    { "type": "should_trigger", "prompt": "which of our report blocks should run on-behalf-of the user vs the service principal?" },
+
+    { "type": "should_not_trigger", "prompt": "create a metric view for orders in main.sales" },
+    { "type": "should_not_trigger", "prompt": "create a genie space for the sales team" },
+    { "type": "should_not_trigger", "prompt": "build me a dashboard of revenue by region" },
+    { "type": "should_not_trigger", "prompt": "deploy this app to databricks" },
+    { "type": "should_not_trigger", "prompt": "write a SQL query that returns last month's revenue" },
+    { "type": "should_not_trigger", "prompt": "grant select on the metrics view to the analysts group" },
+    { "type": "should_not_trigger", "prompt": "generate a report skill from my contract" },
+    { "type": "should_not_trigger", "prompt": "turn my report skill into a databricks app" },
+    { "type": "should_not_trigger", "prompt": "set up a data contract for our kafka topic" },
+    { "type": "should_not_trigger", "prompt": "review my databricks.yml bundle before I deploy" },
+    { "type": "should_not_trigger", "prompt": "my SQL warehouse is slow, can you optimize this query" },
+    { "type": "should_not_trigger", "prompt": "make this query reusable with a date parameter so I can rerun it" },
+
+    {
+      "type": "quality",
+      "prompt": "set up a governed report contract for our monthly P&L over main.finance.pnl_metrics",
+      "expected_behavior": [
+        "creates reports/<name>/report.yaml plus queries/*.sql rather than inlining SQL in a skill or app",
+        "declares every :param with a -- @param TYPE annotation inside the .sql file itself",
+        "fully qualifies the metric view as catalog.schema.view and never relies on a default catalog",
+        "runs the bundled validator script and reports its exit status"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "validate reports/pnl and fix whatever fails",
+      "expected_behavior": [
+        "runs scripts/validate_contract.py against the contract directory",
+        "reports each failure with the file and rule that failed",
+        "fixes the SQL or report.yaml rather than weakening or skipping the validator",
+        "re-runs the validator and shows it exiting zero"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "this report query returns a different top 10 every run, sort it out",
+      "expected_behavior": [
+        "identifies LIMIT without a total ORDER BY as the cause rather than blaming caching",
+        "adds an ORDER BY that includes tie-breaker columns so the row set is deterministic",
+        "keeps the LIMIT parameter annotated as INT, not BIGINT",
+        "re-validates the contract afterwards"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "the entity breakdown block must respect each viewer's row-level permissions",
+      "expected_behavior": [
+        "renames or creates the query as <key>.obo.sql so it executes on behalf of the signed-in user",
+        "explains that the default <key>.sql runs as the app service principal with a shared cache",
+        "records the execution identity of the block in report.yaml",
+        "warns that the two identities can legitimately return different numbers"
+      ]
+    },
+    {
+      "type": "quality",
+      "prompt": "add a customer filter to the summary query so users can narrow it down",
+      "expected_behavior": [
+        "adds a :param bound as a value, never string-interpolated into the SQL text",
+        "declares the parameter with -- @param and gives optional filters a companion boolean or an explicit sentinel that is proven outside the data domain",
+        "keeps the query to a single read-only SELECT statement",
+        "re-runs the validator"
+      ]
+    }
+  ]
+}

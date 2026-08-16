@@ -1,0 +1,16 @@
+{
+  "$schema": "https://skills.sh/schemas/skills.sh.schema.json",
+  "notGrouped": "bottom",
+  "groupings": [
+    {
+      "title": "The governed reporting core",
+      "description": "One versioned directory of trusted, parametric SQL over your Unity Catalog semantic layer - the single definition of the numbers, with a validator that refuses the constructs which quietly make a report irreproducible.",
+      "skills": ["governed-report-contract"]
+    },
+    {
+      "title": "Two consumers, same numbers",
+      "description": "Promote that one contract in both directions - into a self-contained skill that renders a dashboard-grade HTML report, and into a Databricks App serving the very same queries - with a hash gate that fails the build the moment either copy drifts.",
+      "skills": ["report-skill-builder", "report-to-databricks-app"]
+    }
+  ]
+}

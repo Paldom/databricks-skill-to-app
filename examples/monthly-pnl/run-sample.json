@@ -1,0 +1,203 @@
+{
+  "contract": {
+    "name": "monthly-pnl",
+    "version": "1.0.0",
+    "title": "Monthly P&L",
+    "owner": "finance-analytics@example.com"
+  },
+  "generated_at": "2026-08-14T13:00:24+00:00",
+  "warehouse_id": "<warehouse-id>",
+  "profile": "<profile>",
+  "params": {
+    "start_date": "2025-09-01",
+    "end_date": "2026-08-01",
+    "row_limit": 10
+  },
+  "blocks": [
+    {
+      "key": "pnl_summary",
+      "kind": "kpi",
+      "title": "At a glance",
+      "identity": "service_principal",
+      "trust": "certified",
+      "status": "ok",
+      "executed_at": "2026-08-14T13:00:34+00:00",
+      "columns": [
+        {
+          "name": "revenue",
+          "type": "DECIMAL"
+        },
+        {
+          "name": "gross_profit",
+          "type": "DECIMAL"
+        },
+        {
+          "name": "gross_margin_pct",
+          "type": "DECIMAL"
+        },
+        {
+          "name": "net_result",
+          "type": "DECIMAL"
+        }
+      ],
+      "rows": [
+        [
+          "65455683",
+          "28660769",
+          "43.8",
+          "9192554"
+        ]
+      ],
+      "row_count": 1,
+      "total_row_count": 1
+    },
+    {
+      "key": "margin_trend",
+      "kind": "chart",
+      "title": "Gross margin by month",
+      "identity": "service_principal",
+      "trust": "certified",
+      "status": "ok",
+      "executed_at": "2026-08-14T13:00:39+00:00",
+      "columns": [
+        {
+          "name": "month",
+          "type": "STRING"
+        },
+        {
+          "name": "gross_margin_pct",
+          "type": "DECIMAL"
+        }
+      ],
+      "rows": [
+        [
+          "2025-09",
+          "44.3"
+        ],
+        [
+          "2025-10",
+          "43.4"
+        ],
+        [
+          "2025-11",
+          "42.6"
+        ],
+        [
+          "2025-12",
+          "42.0"
+        ],
+        [
+          "2026-01",
+          "41.9"
+        ],
+        [
+          "2026-02",
+          "42.1"
+        ],
+        [
+          "2026-03",
+          "42.7"
+        ],
+        [
+          "2026-04",
+          "43.5"
+        ],
+        [
+          "2026-05",
+          "44.5"
+        ],
+        [
+          "2026-06",
+          "45.4"
+        ],
+        [
+          "2026-07",
+          "46.2"
+        ],
+        [
+          "2026-08",
+          "46.7"
+        ]
+      ],
+      "row_count": 12,
+      "total_row_count": 12
+    },
+    {
+      "key": "pnl_by_entity",
+      "kind": "table",
+      "title": "Result by entity",
+      "identity": "service_principal",
+      "trust": "certified",
+      "status": "ok",
+      "executed_at": "2026-08-14T13:00:41+00:00",
+      "columns": [
+        {
+          "name": "entity",
+          "type": "STRING"
+        },
+        {
+          "name": "revenue",
+          "type": "DECIMAL"
+        },
+        {
+          "name": "gross_margin_pct",
+          "type": "DECIMAL"
+        },
+        {
+          "name": "net_result",
+          "type": "DECIMAL"
+        }
+      ],
+      "rows": [
+        [
+          "EMEA",
+          "22038950",
+          "45.0",
+          "3478224"
+        ],
+        [
+          "AMER",
+          "29752583",
+          "41.1",
+          "3002383"
+        ],
+        [
+          "APAC",
+          "13664149",
+          "47.7",
+          "2711947"
+        ]
+      ],
+      "row_count": 3,
+      "total_row_count": 3
+    },
+    {
+      "key": "data_watermark",
+      "kind": "narrative",
+      "title": "Data freshness",
+      "identity": "service_principal",
+      "trust": "certified",
+      "status": "ok",
+      "executed_at": "2026-08-14T13:00:43+00:00",
+      "columns": [
+        {
+          "name": "watermark",
+          "type": "STRING"
+        }
+      ],
+      "rows": [
+        [
+          "2026-08-01"
+        ]
+      ],
+      "row_count": 1,
+      "total_row_count": 1
+    }
+  ],
+  "attested_principal": "analyst@example.com",
+  "freshness": {
+    "watermark": "2026-08-01",
+    "max_lag": "45d",
+    "source_block": "data_watermark"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "name": "databricks-skill-to-app",
+  "description": "Agent Skills for promoting a Claude Code reporting skill into a Databricks App: one governed reporting core shared by both, Unity Catalog governance, and Databricks Apps deployment.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Paldom",
+    "url": "https://github.com/Paldom"
+  },
+  "homepage": "https://github.com/Paldom/databricks-skill-to-app",
+  "license": "MIT"
+}

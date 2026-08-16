@@ -1,0 +1,49 @@
+version: 1.0.0
+name: monthly-pnl
+title: Monthly P&L
+owner: finance-analytics@example.com
+
+semantic_layer:
+  metric_views: metric-views/definitions.json
+  allowed_catalogs: [demo]
+
+params:
+  - name: start_date
+    type: DATE
+    default: "2025-09-01"
+  - name: end_date
+    type: DATE
+    default: "2026-08-01"
+  - name: row_limit
+    type: INT
+    default: 10
+    max: 100
+
+blocks:
+  - key: pnl_summary
+    kind: kpi
+    title: At a glance
+    identity: service_principal
+    trust: certified
+  - key: margin_trend
+    kind: chart
+    title: Gross margin by month
+    identity: service_principal
+    trust: certified
+  - key: pnl_by_entity
+    kind: table
+    title: Result by entity
+    identity: service_principal
+    trust: certified
+  - key: data_watermark
+    kind: narrative
+    title: Data freshness
+    identity: service_principal
+    trust: certified
+
+guardrails:
+  max_rows: 5000
+  require_total_order: true
+  freshness:
+    watermark_block: data_watermark
+    max_lag: 45d

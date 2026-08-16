@@ -1,0 +1,47 @@
+# Recreates the worked example: the semantic layer, then the app that serves it.
+#
+# The catalog and schema are deliberately NOT bundle variables. They are pinned in the report
+# contract's `semantic_layer.allowed_catalogs`, and pointing a report at different data is a
+# contract change (a major version bump), not a deploy-time flag. The warehouse is a variable
+# because it is infrastructure, not meaning.
+bundle:
+  name: monthly-pnl-example
+
+variables:
+  warehouse_id:
+    description: SQL warehouse that runs the setup statements and backs the app
+  app_name:
+    description: Databricks App name (max 26 chars, lowercase and hyphens)
+    default: monthly-pnl-report
+
+resources:
+  jobs:
+    build_semantic_layer:
+      name: monthly-pnl-semantic-layer
+      description: Creates demo.pnl_demo.pnl_fact and the demo.pnl_demo.pnl_metrics metric view.
+      tasks:
+        - task_key: pnl_fact
+          sql_task:
+            warehouse_id: ${var.warehouse_id}
+            file:
+              path: ./setup/01_pnl_fact.sql
+        - task_key: pnl_metrics
+          depends_on:
+            - task_key: pnl_fact
+          sql_task:
+            warehouse_id: ${var.warehouse_id}
+            file:
+              path: ./setup/02_pnl_metrics.sql
+
+  apps:
+    monthly_pnl_report:
+      name: ${var.app_name}
+      description: Monthly P&L served from the same governed contract as the report skill.
+      source_code_path: ./app
+
+targets:
+  dev:
+    mode: development
+    default: true
+  prod:
+    mode: production

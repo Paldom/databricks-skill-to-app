@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- One chart runtime, no framework. ECharts is the library AppKit itself ships, so the report
+     and the app draw the same way; the `simple` build carries line and bar only. Pinned exactly —
+     a floating version would change the report under you.
+     Charts need the network; figures, tables, states and provenance do not. -->
+<meta http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'unsafe-inline' https://unpkg.com; style-src 'unsafe-inline'; connect-src 'none'">
+<title>{{TITLE}}</title>
+<script crossorigin src="https://unpkg.com/echarts@6.0.0/dist/echarts.simple.min.js"></script>
+<style>
+{{STYLE}}
+</style>
+</head>
+<body>
+<div class="dash">
+  <div class="page-head">
+    <div>
+      <h1>{{TITLE}}</h1>
+      <p>{{SUBTITLE}}</p>
+    </div>
+    {{META}}
+  </div>
+  {{BLOCKS}}
+</div>
+
+<script id="chart-data" type="application/json">{{CHART_DATA}}</script>
+<script>
+{{BOOTSTRAP}}
+</script>
+{{PROVENANCE}}
+</body>
+</html>
