@@ -82,7 +82,9 @@ duplicate: `databricks-core` for auth and profile selection, `databricks-apps` f
 ## Skill or app?
 
 Use the **skill** while the question is still being discovered — ad-hoc, a handful of users, a
-human reading every output. Move to the **app** when the report recurs, the audience grows, or
+human reading every output. That phase runs on a tight loop, **describe → generate → inspect →
+refine**, minutes per round, because refining the report means editing instructions rather than
+rebuilding anything. Move to the **app** when the report recurs, the audience grows, or
 the numbers drive decisions that need sign-off. The contract makes that move a copy rather than
 a rewrite, so the skill is not thrown away.
 
