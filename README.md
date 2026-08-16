@@ -11,6 +11,10 @@ From a coding-agent skill to a Databricks App, with one governed reporting core.
 Build a report skill with `report-skill-builder` → run it to render the report → iterate →
 ship the same queries as a Databricks App with `report-to-databricks-app`.
 
+Unity Catalog governs who may read the table; it does not govern how the number in the report
+got produced. The contract pins that half — one versioned directory of trusted SQL both
+consumers read, hash-gated so the build fails when either copy drifts.
+
 Agent Skills for [Claude Code](https://code.claude.com/docs/en/skills) (and any
 [Agent Skills](https://agentskills.io)-compatible tool). Each skill is a folder under
 [`skills/`](skills/) with a single-purpose `SKILL.md`, trigger evals, and optional
@@ -60,7 +64,35 @@ explicitly with `/<skill-name>`.
 | [`report-to-databricks-app`](skills/report-to-databricks-app/) | Materializes the same contract into a Databricks AppKit app — queries copied byte-for-byte, metric views bound, drift gated by a hash manifest. |
 
 They compose into one workflow: **contract → skill → app**. The paste-ready
-[`docs/setup-prompt.md`](docs/setup-prompt.md) runs it end to end.
+[`docs/setup-prompt.md`](docs/setup-prompt.md) runs it end to end. They delegate rather than
+duplicate: `databricks-core` for auth and profile selection, `databricks-apps` for scaffolding,
+`databricks-app-design` for screens, `databricks-metric-views` for the semantic layer.
+
+<table>
+<tr>
+<td width="50%"><img alt="The Monthly P&amp;L report: four stat cards, a gross-margin-by-month area chart and a by-entity table" src="docs/assets/report-sample.png"></td>
+<td width="50%"><img alt="The same contract served by a Databricks AppKit app, showing the same figures" src="docs/assets/app-sample.png"></td>
+</tr>
+<tr>
+<td align="center"><em>The skill renders the contract…</em></td>
+<td align="center"><em>…the app serves the same queries.</em></td>
+</tr>
+</table>
+
+## Skill or app?
+
+Use the **skill** while the question is still being discovered — ad-hoc, a handful of users, a
+human reading every output. Move to the **app** when the report recurs, the audience grows, or
+the numbers drive decisions that need sign-off. The contract makes that move a copy rather than
+a rewrite, so the skill is not thrown away.
+
+## Governing the generated skill
+
+A report skill reads governed data, so treat it as software rather than as a prompt. The
+generator gives you three of the pieces: the contract copied in under a SHA-256 manifest the
+runner verifies *before* it queries, trigger evals, and a `--check` drift gate for CI. The rest
+stays yours — keeping the skill in git behind pull requests, pinning the model version, and
+shipping it as one versioned DAB, as the [worked example](examples/monthly-pnl/) does.
 
 ## Repository structure
 
