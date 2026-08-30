@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/icon.svg" alt="databricks-skill-to-app icon" width="128"/>
+</p>
+
 # Databricks Skill To App
 
 [![CI](https://github.com/Paldom/databricks-skill-to-app/actions/workflows/ci.yml/badge.svg)](https://github.com/Paldom/databricks-skill-to-app/actions/workflows/ci.yml)
@@ -87,6 +91,16 @@ refine**, minutes per round, because refining the report means editing instructi
 rebuilding anything. Move to the **app** when the report recurs, the audience grows, or
 the numbers drive decisions that need sign-off. The contract makes that move a copy rather than
 a rewrite, so the skill is not thrown away.
+
+## The natural-language option
+
+A report answers the questions you already knew to ask. For the rest, the contract can bind a
+Genie Agent — `genie.space_id` plus `trust`, where the validator rejects any value but
+`generated`. A Genie Agent's `example_question_sqls` *guide* SQL generation without constraining
+it, so its answers are a different trust class from the contract's certified blocks and have to
+be labelled that way wherever the two appear side by side. Authoring or tuning the agent is
+`databricks-genie-agents`; open-ended "ask Genie" across the workspace is
+`databricks-data-discovery`. This repo pins only the binding and the trust boundary.
 
 ## Governing the generated skill
 
