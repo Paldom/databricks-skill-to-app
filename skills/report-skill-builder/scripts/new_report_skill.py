@@ -45,15 +45,19 @@ def sha256(path: Path) -> str:
 
 
 def build_description(title: str, name: str, version: str) -> str:
-    desc = (f"Generates the {title} report as a self-contained HTML page from the pinned {name} "
-            f"contract v{version}, with the numbers traceable to its trusted queries. Use when the "
-            f"user asks for the {title}, this period's figures, or to re-run or refresh that report. "
-            f"Not for changing the report definition, other reports, dashboards or app deployment.")
+    desc = (
+        f"Generates the {title} report as a self-contained HTML page from the pinned {name} "
+        f"contract v{version}, with the numbers traceable to its trusted queries. Use when the "
+        f"user asks for the {title}, this period's figures, or to re-run or refresh that report. "
+        f"Not for changing the report definition, other reports, dashboards or app deployment."
+    )
     if len(desc) > DESC_MAX:
-        desc = (f"Generates the {title} report as a self-contained HTML page from the pinned {name} "
-                f"contract v{version}. Use when the user asks for the {title}, this period's figures, "
-                f"or to re-run that report. Not for changing the report definition, other reports, "
-                f"dashboards or app deployment.")
+        desc = (
+            f"Generates the {title} report as a self-contained HTML page from the pinned {name} "
+            f"contract v{version}. Use when the user asks for the {title}, this period's figures, "
+            f"or to re-run that report. Not for changing the report definition, other reports, "
+            f"dashboards or app deployment."
+        )
     return desc
 
 
@@ -121,8 +125,10 @@ def safe_token(value: str, field: str) -> str:
         die(f"{field} contains template tokens ({{{{ }}}}) — rename it in the contract")
     for bad in ("`", "$(", "\\"):
         if bad in text:
-            die(f"{field} contains {bad!r}, which would execute or escape in a generated command "
-                "— rename it in the contract")
+            die(
+                f"{field} contains {bad!r}, which would execute or escape in a generated command "
+                "— rename it in the contract"
+            )
     return text
 
 
@@ -135,10 +141,11 @@ def yaml_quote(text: str) -> str:
     return '"' + text.replace('"', '\\"') + '"'
 
 
-def generate(contract: Path, out: Path, validator: Path | None, skip_validate: bool,
-             force: bool = False) -> int:
+def generate(
+    contract: Path, out: Path, validator: Path | None, skip_validate: bool, force: bool = False
+) -> int:
     try:
-        import yaml  # noqa: PLC0415
+        import yaml
     except ImportError:
         die("PyYAML is required — `pip install pyyaml`")
 
@@ -147,17 +154,22 @@ def generate(contract: Path, out: Path, validator: Path | None, skip_validate: b
 
     # Generating into (or from) an overlapping path would delete the source before copying it.
     if contract == out or contract.is_relative_to(out) or out.is_relative_to(contract):
-        die(f"--contract {contract} and --out {out} overlap — the contract would be deleted; "
-            "generate into a separate directory")
+        die(
+            f"--contract {contract} and --out {out} overlap — the contract would be deleted; "
+            "generate into a separate directory"
+        )
     if out.exists() and any(out.iterdir()) and not force:
         die(f"{out} already exists and is not empty — pass --force to replace it")
 
     if not skip_validate:
         if validator is None:
-            die("cannot find validate_contract.py — pass --validator <path>, or --skip-validate "
-                "only if you have already run it and it exited 0")
-        proc = subprocess.run([sys.executable, str(validator), str(contract)],
-                              capture_output=True, text=True)
+            die(
+                "cannot find validate_contract.py — pass --validator <path>, or --skip-validate "
+                "only if you have already run it and it exited 0"
+            )
+        proc = subprocess.run(
+            [sys.executable, str(validator), str(contract)], capture_output=True, text=True
+        )
         sys.stderr.write(proc.stderr)
         if proc.returncode != 0:
             die("the contract is invalid — fix it before generating a skill from it", code=1)
@@ -184,11 +196,16 @@ def generate(contract: Path, out: Path, validator: Path | None, skip_validate: b
 
     files = {
         str(p.relative_to(dest_contract)): sha256(p)
-        for p in sorted(dest_contract.rglob("*")) if p.is_file()
+        for p in sorted(dest_contract.rglob("*"))
+        if p.is_file()
     }
     (out / "contract.manifest.json").write_text(
-        json.dumps({"contract": name, "version": version, "source": contract.name,
-                    "files": files}, indent=2), encoding="utf-8")
+        json.dumps(
+            {"contract": name, "version": version, "source": contract.name, "files": files},
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
 
     # --- copy the runner, renderer and design system -------------------------------------
     (out / "scripts").mkdir(parents=True, exist_ok=True)
@@ -200,41 +217,63 @@ def generate(contract: Path, out: Path, validator: Path | None, skip_validate: b
 
     # --- render SKILL.md ------------------------------------------------------------------
     blocks = spec.get("blocks") or []
-    blocks_table = "\n".join(
-        f'| `{b.get("key")}` | {b.get("kind")} | {b.get("identity")} | {b.get("trust")} |'
-        for b in blocks) or "| _none_ | | | |"
-    params = [{k: safe_token(v, f"params.{k}") for k, v in p.items() if k in ("name", "type", "default")}
-              for p in (spec.get("params") or [])]
-    params_table = "\n".join(
-        f'| `{p.get("name")}` | {p.get("type")} | `{p.get("default", "")}` |'
-        for p in params) or "| _none_ | | |"
+    blocks_table = (
+        "\n".join(
+            f"| `{b.get('key')}` | {b.get('kind')} | {b.get('identity')} | {b.get('trust')} |"
+            for b in blocks
+        )
+        or "| _none_ | | | |"
+    )
+    params = [
+        {k: safe_token(v, f"params.{k}") for k, v in p.items() if k in ("name", "type", "default")}
+        for p in (spec.get("params") or [])
+    ]
+    params_table = (
+        "\n".join(
+            f"| `{p.get('name')}` | {p.get('type')} | `{p.get('default', '')}` |" for p in params
+        )
+        or "| _none_ | | |"
+    )
     param_flags = "".join(
-        f'     --param {p.get("name")}={p.get("default", "<value>")} \\\n' for p in params)
+        f"     --param {p.get('name')}={p.get('default', '<value>')} \\\n" for p in params
+    )
 
     description = build_description(title, name, version)
     if not DESC_MIN <= len(description) <= DESC_MAX:
-        print(f"WARN: generated description is {len(description)} chars (aim {DESC_MIN}-{DESC_MAX}) "
-              f"— edit it in {out / 'SKILL.md'}", file=sys.stderr)
+        print(
+            f"WARN: generated description is {len(description)} chars (aim {DESC_MIN}-{DESC_MAX}) "
+            f"— edit it in {out / 'SKILL.md'}",
+            file=sys.stderr,
+        )
 
     skill_md = (ASSETS / "SKILL.md.tmpl").read_text(encoding="utf-8")
-    for token, value in (("{{SKILL_NAME}}", skill_name), ("{{DESCRIPTION}}", yaml_quote(description)),
-                         ("{{REPORT_TITLE}}", title), ("{{REPORT_NAME}}", name),
-                         ("{{VERSION}}", version), ("{{OWNER}}", owner),
-                         ("{{BLOCKS_TABLE}}", blocks_table), ("{{PARAMS_TABLE}}", params_table),
-                         ("{{PARAM_FLAGS}}", param_flags)):
+    for token, value in (
+        ("{{SKILL_NAME}}", skill_name),
+        ("{{DESCRIPTION}}", yaml_quote(description)),
+        ("{{REPORT_TITLE}}", title),
+        ("{{REPORT_NAME}}", name),
+        ("{{VERSION}}", version),
+        ("{{OWNER}}", owner),
+        ("{{BLOCKS_TABLE}}", blocks_table),
+        ("{{PARAMS_TABLE}}", params_table),
+        ("{{PARAM_FLAGS}}", param_flags),
+    ):
         skill_md = skill_md.replace(token, value)
     (out / "SKILL.md").write_text(skill_md, encoding="utf-8")
 
     (out / "evals").mkdir(parents=True, exist_ok=True)
     (out / "evals" / "evals.json").write_text(
-        json.dumps(render_evals(skill_name, title), indent=2) + "\n", encoding="utf-8")
+        json.dumps(render_evals(skill_name, title), indent=2) + "\n", encoding="utf-8"
+    )
 
-    print(f"OK: generated {out} from {name} v{version} ({len(blocks)} block(s), {len(files)} contract file(s))")
+    print(
+        f"OK: generated {out} from {name} v{version} ({len(blocks)} block(s), {len(files)} contract file(s))"
+    )
     return 0
 
 
 def selftest() -> int:
-    import tempfile  # noqa: PLC0415
+    import tempfile
 
     contract_yaml = """\
 version: 2.1.0
@@ -266,11 +305,18 @@ guardrails:
         out = Path(tmp) / "demo-report"
         generate(contract, out, None, skip_validate=True)
 
-        for rel in ("SKILL.md", "contract.manifest.json", "contract/report.yaml",
-                    "contract/queries/summary.sql", "scripts/run_report.py",
-                    "scripts/render_report.py", "assets/report.css",
-                    "assets/report-template.html", "assets/report-charts.js",
-                    "evals/evals.json"):
+        for rel in (
+            "SKILL.md",
+            "contract.manifest.json",
+            "contract/report.yaml",
+            "contract/queries/summary.sql",
+            "scripts/run_report.py",
+            "scripts/render_report.py",
+            "assets/report.css",
+            "assets/report-template.html",
+            "assets/report-charts.js",
+            "evals/evals.json",
+        ):
             if not (out / rel).is_file():
                 problems.append(f"missing generated file: {rel}")
 
@@ -283,22 +329,33 @@ guardrails:
         if not desc:
             problems.append("SKILL.md has no description")
         elif not DESC_MIN <= len(desc.group(1)) <= DESC_MAX:
-            problems.append(f"description is {len(desc.group(1))} chars, outside {DESC_MIN}-{DESC_MAX}")
+            problems.append(
+                f"description is {len(desc.group(1))} chars, outside {DESC_MIN}-{DESC_MAX}"
+            )
 
         manifest = json.loads((out / "contract.manifest.json").read_text(encoding="utf-8"))
         if manifest["files"].get("queries/summary.sql") != hashlib.sha256(sql.encode()).hexdigest():
             problems.append("manifest hash does not match the materialized query")
 
         evals = json.loads((out / "evals" / "evals.json").read_text(encoding="utf-8"))
-        counts = {t: sum(1 for c in evals["cases"] if c["type"] == t)
-                  for t in ("should_trigger", "should_not_trigger", "quality")}
-        if counts["should_trigger"] < 8 or counts["should_not_trigger"] < 8 or counts["quality"] < 3:
+        counts = {
+            t: sum(1 for c in evals["cases"] if c["type"] == t)
+            for t in ("should_trigger", "should_not_trigger", "quality")
+        }
+        if (
+            counts["should_trigger"] < 8
+            or counts["should_not_trigger"] < 8
+            or counts["quality"] < 3
+        ):
             problems.append(f"generated evals are too thin: {counts}")
 
         # Drift must be detected: edit the copy and the runner has to refuse.
-        (out / "contract" / "queries" / "summary.sql").write_text(sql + "-- edited\n", encoding="utf-8")
+        (out / "contract" / "queries" / "summary.sql").write_text(
+            sql + "-- edited\n", encoding="utf-8"
+        )
         sys.path.insert(0, str(out / "scripts"))
-        import run_report  # noqa: PLC0415
+        import run_report
+
         if not run_report.verify_manifest(out / "contract"):
             problems.append("a drifted contract copy was not detected by the manifest check")
         sys.path.pop(0)
@@ -319,7 +376,8 @@ guardrails:
             (bad / "queries").mkdir(parents=True, exist_ok=True)
             (bad / "report.yaml").write_text(
                 contract_yaml.replace("title: Demo Report", f"title: {json.dumps(hostile)}"),
-                encoding="utf-8")
+                encoding="utf-8",
+            )
             (bad / "queries" / "summary.sql").write_text(sql, encoding="utf-8")
             dest = Path(tmp) / "hostile-out"
             generate(bad, dest, None, skip_validate=True, force=True)
@@ -354,11 +412,17 @@ guardrails:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     ap.add_argument("--contract", type=Path, help="validated contract directory")
-    ap.add_argument("--out", type=Path, help="skill folder to create (its name becomes the skill name)")
+    ap.add_argument(
+        "--out", type=Path, help="skill folder to create (its name becomes the skill name)"
+    )
     ap.add_argument("--validator", type=Path, help="path to validate_contract.py")
-    ap.add_argument("--skip-validate", action="store_true", help="only if the validator already exited 0")
+    ap.add_argument(
+        "--skip-validate", action="store_true", help="only if the validator already exited 0"
+    )
     ap.add_argument("--force", action="store_true", help="replace a non-empty output folder")
     ap.add_argument("--selftest", action="store_true")
     args = ap.parse_args()
@@ -367,8 +431,13 @@ def main() -> int:
         return selftest()
     if not args.contract or not args.out:
         ap.error("--contract and --out are required (or pass --selftest)")
-    return generate(args.contract.resolve(), args.out.resolve(),
-                    find_validator(args.validator), args.skip_validate, args.force)
+    return generate(
+        args.contract.resolve(),
+        args.out.resolve(),
+        find_validator(args.validator),
+        args.skip_validate,
+        args.force,
+    )
 
 
 if __name__ == "__main__":

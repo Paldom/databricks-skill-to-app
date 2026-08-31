@@ -75,8 +75,10 @@ def contract_files(contract: Path) -> dict[str, Path]:
         name = rel.split("/", 1)[1]
         key = name[: -len(".obo.sql")] if name.endswith(".obo.sql") else name[: -len(".sql")]
         if key in keys:
-            die(f"queries/{name} and queries/{keys[key]} both resolve to query key {key!r} — "
-                "one block cannot have two execution identities")
+            die(
+                f"queries/{name} and queries/{keys[key]} both resolve to query key {key!r} — "
+                "one block cannot have two execution identities"
+            )
         keys[key] = name
     mv = contract / "metric-views" / "definitions.json"
     if mv.is_file():
@@ -102,7 +104,7 @@ def app_target(app: Path, rel: str) -> Path:
 
 def load_version(contract: Path) -> str:
     try:
-        import yaml  # noqa: PLC0415
+        import yaml
     except ImportError:
         die("PyYAML is required to read report.yaml — `pip install pyyaml`")
     try:
@@ -113,9 +115,13 @@ def load_version(contract: Path) -> str:
         die(f"{contract}/report.yaml must be a mapping")
     version = spec.get("version")
     # Inventing a version would let an unversioned contract look pinned.
-    if not isinstance(version, (str, float, int)) or not re.fullmatch(r"\d+\.\d+\.\d+", str(version)):
-        die(f"{contract}/report.yaml has no valid semver `version` — the app pins this; "
-            "run the governed-report-contract validator first")
+    if not isinstance(version, (str, float, int)) or not re.fullmatch(
+        r"\d+\.\d+\.\d+", str(version)
+    ):
+        die(
+            f"{contract}/report.yaml has no valid semver `version` — the app pins this; "
+            "run the governed-report-contract validator first"
+        )
     return str(version)
 
 
@@ -143,8 +149,10 @@ def materialize(contract: Path, app: Path, check_only: bool) -> int:
 
     if check_only:
         if not manifest_path.is_file():
-            print(f"FAIL: {manifest_path} missing — the app was never materialized from a contract",
-                  file=sys.stderr)
+            print(
+                f"FAIL: {manifest_path} missing — the app was never materialized from a contract",
+                file=sys.stderr,
+            )
             return 1
         recorded = load_manifest(manifest_path)
         pinned = recorded.pop("__version__")
@@ -161,7 +169,9 @@ def materialize(contract: Path, app: Path, check_only: bool) -> int:
                 continue
             digest = sha256(target)
             if digest != recorded[rel]:
-                problems.append(f"{rel}: app copy edited by hand (sha256 {digest[:12]} != manifest {recorded[rel][:12]})")
+                problems.append(
+                    f"{rel}: app copy edited by hand (sha256 {digest[:12]} != manifest {recorded[rel][:12]})"
+                )
             elif digest != sha256(src):
                 problems.append(f"{rel}: app copy is stale — the contract moved on")
         # The decisive check: what the app can actually RUN, versus what the contract governs.
@@ -173,7 +183,9 @@ def materialize(contract: Path, app: Path, check_only: bool) -> int:
         if problems:
             for p in problems:
                 print(f"DRIFT {p}", file=sys.stderr)
-            print(f"FAIL: {len(problems)} drift finding(s) — re-run without --check to re-materialize")
+            print(
+                f"FAIL: {len(problems)} drift finding(s) — re-run without --check to re-materialize"
+            )
             return 1
         print(f"OK: app is in sync with contract v{version} ({len(sources)} file(s))")
         return 0
@@ -182,8 +194,9 @@ def materialize(contract: Path, app: Path, check_only: bool) -> int:
     # cannot be trusted must never drive a delete.
     previous = load_manifest(manifest_path) if manifest_path.is_file() else {}
     previous.pop("__version__", None)
-    reject_symlinks([app_target(app, rel) for rel in {*previous, *sources}
-                     if app_target(app, rel).exists()])
+    reject_symlinks(
+        [app_target(app, rel) for rel in {*previous, *sources} if app_target(app, rel).exists()]
+    )
 
     files: dict[str, str] = {}
     for rel, src in sources.items():
@@ -201,23 +214,32 @@ def materialize(contract: Path, app: Path, check_only: bool) -> int:
             print(f"removed {stale.relative_to(app)} (not governed by the contract)")
 
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
-    manifest_path.write_text(json.dumps({
-        "contract": contract.name,
-        "contract_version": version,
-        "source": str(contract),
-        "files": files,
-    }, indent=2) + "\n", encoding="utf-8")
+    manifest_path.write_text(
+        json.dumps(
+            {
+                "contract": contract.name,
+                "contract_version": version,
+                "source": str(contract),
+                "files": files,
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
 
     obo = [r for r in files if r.endswith(".obo.sql")]
-    print(f"OK: materialized contract v{version} into {app} "
-          f"({len(files)} file(s), {len(obo)} on-behalf-of)")
+    print(
+        f"OK: materialized contract v{version} into {app} "
+        f"({len(files)} file(s), {len(obo)} on-behalf-of)"
+    )
     if obo:
         print("     per-user blocks: " + ", ".join(sorted(obo)))
     return 0
 
 
 def selftest() -> int:
-    import tempfile  # noqa: PLC0415
+    import tempfile
 
     problems: list[str] = []
     yaml_text = "version: 1.4.0\nname: demo\ntitle: Demo\nowner: o@example.com\n"
@@ -229,13 +251,16 @@ def selftest() -> int:
         (contract / "queries" / "a.sql").write_text("SELECT 1 AS n\n", encoding="utf-8")
         (contract / "queries" / "b.obo.sql").write_text("SELECT 2 AS n\n", encoding="utf-8")
         (contract / "metric-views" / "definitions.json").write_text(
-            '{"metricViews": {"m": {"source": "main.s.v"}}}\n', encoding="utf-8")
+            '{"metricViews": {"m": {"source": "main.s.v"}}}\n', encoding="utf-8"
+        )
         app = Path(tmp) / "app"
 
         if materialize(contract, app, False) != 0:
             problems.append("first materialization failed")
         if not (app / "config" / "queries" / "b.obo.sql").is_file():
-            problems.append("the .obo.sql suffix was not preserved — per-user execution would be lost")
+            problems.append(
+                "the .obo.sql suffix was not preserved — per-user execution would be lost"
+            )
         if not (app / "config" / "metric-views" / "definitions.json").is_file():
             problems.append("metric-view definitions were not bound")
         if materialize(contract, app, True) != 0:
@@ -306,16 +331,22 @@ def selftest() -> int:
         for p in problems:
             print(f"SELFTEST FAIL: {p}", file=sys.stderr)
         return 1
-    print("OK: self-test passed (copy, obo suffix, hand-edit, stale copy, version bump, removal, "
-          "ungoverned SQL, manifest path traversal, duplicate query key)")
+    print(
+        "OK: self-test passed (copy, obo suffix, hand-edit, stale copy, version bump, removal, "
+        "ungoverned SQL, manifest path traversal, duplicate query key)"
+    )
     return 0
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     ap.add_argument("--contract", type=Path, help="contract directory (contains report.yaml)")
     ap.add_argument("--app", type=Path, help="AppKit app root (the folder containing config/)")
-    ap.add_argument("--check", action="store_true", help="verify only; exit non-zero on drift (use in CI)")
+    ap.add_argument(
+        "--check", action="store_true", help="verify only; exit non-zero on drift (use in CI)"
+    )
     ap.add_argument("--selftest", action="store_true")
     args = ap.parse_args()
 

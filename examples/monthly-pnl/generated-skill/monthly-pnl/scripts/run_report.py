@@ -96,8 +96,14 @@ def with_profile(args: list[str], profile: str) -> list[str]:
     return [*args, "--profile", profile] if profile else args
 
 
-def execute(profile: str, warehouse: str, statement: str, parameters: list[dict],
-            timeout_s: int, row_cap: int | None = None) -> dict:
+def execute(
+    profile: str,
+    warehouse: str,
+    statement: str,
+    parameters: list[dict],
+    timeout_s: int,
+    row_cap: int | None = None,
+) -> dict:
     payload = {
         "warehouse_id": warehouse,
         "statement": statement,
@@ -117,12 +123,24 @@ def execute(profile: str, warehouse: str, statement: str, parameters: list[dict]
     while (resp.get("status") or {}).get("state") not in TERMINAL:
         if time.monotonic() > deadline:
             sid = resp.get("statement_id", "")
-            subprocess.run(["databricks", *with_profile(
-                ["api", "post", f"{STATEMENTS}{sid}/cancel"], profile)], capture_output=True, text=True)
-            return {"status": {"state": "CANCELED",
-                               "error": {"message": f"timed out after {timeout_s}s"}}}
+            subprocess.run(
+                [
+                    "databricks",
+                    *with_profile(["api", "post", f"{STATEMENTS}{sid}/cancel"], profile),
+                ],
+                capture_output=True,
+                text=True,
+            )
+            return {
+                "status": {
+                    "state": "CANCELED",
+                    "error": {"message": f"timed out after {timeout_s}s"},
+                }
+            }
         time.sleep(2)
-        resp = cli_json(with_profile(["api", "get", f"{STATEMENTS}{resp['statement_id']}"], profile))
+        resp = cli_json(
+            with_profile(["api", "get", f"{STATEMENTS}{resp['statement_id']}"], profile)
+        )
 
     # Results arrive in chunks. Stopping at the first one silently drops rows, which is the
     # one failure a report must never have.
@@ -144,7 +162,9 @@ def coerce_params(declared: dict[str, str], values: dict[str, str], key: str) ->
     out = []
     for name, ptype in sorted(declared.items()):
         if name not in values:
-            die(f"block {key}: no value for :{name} — pass --param {name}=<value> or give it a default in report.yaml")
+            die(
+                f"block {key}: no value for :{name} — pass --param {name}=<value> or give it a default in report.yaml"
+            )
         # Values cross the wire as typed strings in both execution paths; keep them strings
         # so DECIMAL and large BIGINT never round-trip through a float.
         out.append({"name": name, "value": str(values[name]), "type": ptype})
@@ -193,8 +213,8 @@ sys.exit(1)
 
 def selftest() -> int:
     """Exercise polling, chunk pagination, caps and parameter rejection without a warehouse."""
-    import os  # noqa: PLC0415
-    import tempfile  # noqa: PLC0415
+    import os
+    import tempfile
 
     problems: list[str] = []
     contract_yaml = """\
@@ -227,10 +247,14 @@ guardrails:
         (contract / "queries").mkdir(parents=True)
         (contract / "report.yaml").write_text(contract_yaml, encoding="utf-8")
         (contract / "queries" / "summary.sql").write_text(sql, encoding="utf-8")
-        files = {str(p.relative_to(contract)): hashlib.sha256(p.read_bytes()).hexdigest()
-                 for p in sorted(contract.rglob("*")) if p.is_file()}
+        files = {
+            str(p.relative_to(contract)): hashlib.sha256(p.read_bytes()).hexdigest()
+            for p in sorted(contract.rglob("*"))
+            if p.is_file()
+        }
         (root / "skill" / "contract.manifest.json").write_text(
-            json.dumps({"contract": "demo", "version": "1.0.0", "files": files}), encoding="utf-8")
+            json.dumps({"contract": "demo", "version": "1.0.0", "files": files}), encoding="utf-8"
+        )
 
         bindir = root / "bin"
         bindir.mkdir()
@@ -243,16 +267,30 @@ guardrails:
 
         out = root / "envelope.json"
         rc = subprocess.run(
-            [sys.executable, str(Path(__file__).resolve()), "--contract", str(contract),
-             "--warehouse", "wh1", "--profile", "P", "--out", str(out)],
-            capture_output=True, text=True)
+            [
+                sys.executable,
+                str(Path(__file__).resolve()),
+                "--contract",
+                str(contract),
+                "--warehouse",
+                "wh1",
+                "--profile",
+                "P",
+                "--out",
+                str(out),
+            ],
+            capture_output=True,
+            text=True,
+        )
         if rc.returncode != 0:
             problems.append(f"clean run failed: {rc.stderr.strip()}")
         else:
             env = json.loads(out.read_text(encoding="utf-8"))
             block = env["blocks"][0]
             if block.get("row_count") != 3:
-                problems.append(f"chunk pagination lost rows: got {block.get('row_count')}, expected 3")
+                problems.append(
+                    f"chunk pagination lost rows: got {block.get('row_count')}, expected 3"
+                )
             if env.get("attested_principal") != "someone@example.com":
                 problems.append("principal was not attested")
             calls = [json.loads(line) for line in log.read_text(encoding="utf-8").splitlines()]
@@ -266,25 +304,60 @@ guardrails:
 
         # An undeclared parameter must be rejected, not silently ignored.
         rc = subprocess.run(
-            [sys.executable, str(Path(__file__).resolve()), "--contract", str(contract),
-             "--warehouse", "wh1", "--param", "startdate=2026-01-01", "--out", str(out)],
-            capture_output=True, text=True)
+            [
+                sys.executable,
+                str(Path(__file__).resolve()),
+                "--contract",
+                str(contract),
+                "--warehouse",
+                "wh1",
+                "--param",
+                "startdate=2026-01-01",
+                "--out",
+                str(out),
+            ],
+            capture_output=True,
+            text=True,
+        )
         if rc.returncode != 2 or "not declared" not in rc.stderr:
             problems.append("an undeclared --param was not rejected")
 
         # A parameter above its declared bound must be rejected before anything runs.
         rc = subprocess.run(
-            [sys.executable, str(Path(__file__).resolve()), "--contract", str(contract),
-             "--warehouse", "wh1", "--param", "row_limit=9999", "--out", str(out)],
-            capture_output=True, text=True)
+            [
+                sys.executable,
+                str(Path(__file__).resolve()),
+                "--contract",
+                str(contract),
+                "--warehouse",
+                "wh1",
+                "--param",
+                "row_limit=9999",
+                "--out",
+                str(out),
+            ],
+            capture_output=True,
+            text=True,
+        )
         if rc.returncode != 2 or "exceeds the contract bound" not in rc.stderr:
             problems.append("an out-of-bounds --param was not rejected")
 
         # A drifted copy must fail closed.
         (contract / "queries" / "summary.sql").write_text(sql + "-- edit\n", encoding="utf-8")
         rc = subprocess.run(
-            [sys.executable, str(Path(__file__).resolve()), "--contract", str(contract),
-             "--warehouse", "wh1", "--out", str(out)], capture_output=True, text=True)
+            [
+                sys.executable,
+                str(Path(__file__).resolve()),
+                "--contract",
+                str(contract),
+                "--warehouse",
+                "wh1",
+                "--out",
+                str(out),
+            ],
+            capture_output=True,
+            text=True,
+        )
         if rc.returncode != 2 or "manifest" not in rc.stderr:
             problems.append("a drifted contract copy was not refused")
 
@@ -297,10 +370,14 @@ guardrails:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     if "--selftest" in sys.argv:
         return selftest()
-    ap.add_argument("--contract", type=Path, required=True, help="contract directory (contains report.yaml)")
+    ap.add_argument(
+        "--contract", type=Path, required=True, help="contract directory (contains report.yaml)"
+    )
     ap.add_argument("--profile", default="", help="Databricks CLI profile (never auto-selected)")
     ap.add_argument("--warehouse", required=True, help="SQL warehouse id")
     ap.add_argument("--param", action="append", default=[], metavar="NAME=VALUE")
@@ -309,7 +386,7 @@ def main() -> int:
     args = ap.parse_args()
 
     try:
-        import yaml  # noqa: PLC0415
+        import yaml
     except ImportError:
         die("PyYAML is required to read report.yaml — `pip install pyyaml`")
 
@@ -321,11 +398,17 @@ def main() -> int:
 
     drift = verify_manifest(contract)
     if drift:
-        die("materialized contract does not match its manifest — re-materialize instead of editing "
-            "the copy:\n  " + "\n  ".join(drift))
+        die(
+            "materialized contract does not match its manifest — re-materialize instead of editing "
+            "the copy:\n  " + "\n  ".join(drift)
+        )
 
     declared_in_yaml = {str(p["name"]) for p in (spec.get("params") or []) if p.get("name")}
-    values = {p["name"]: p.get("default") for p in (spec.get("params") or []) if p.get("default") is not None}
+    values = {
+        p["name"]: p.get("default")
+        for p in (spec.get("params") or [])
+        if p.get("default") is not None
+    }
     seen_overrides: set[str] = set()
     for kv in args.param:
         if "=" not in kv:
@@ -333,7 +416,9 @@ def main() -> int:
         k, v = kv.split("=", 1)
         # A typo'd parameter name must not silently leave the default in force.
         if k not in declared_in_yaml:
-            die(f"--param {k}: not declared in report.yaml (declared: {', '.join(sorted(declared_in_yaml)) or 'none'})")
+            die(
+                f"--param {k}: not declared in report.yaml (declared: {', '.join(sorted(declared_in_yaml)) or 'none'})"
+            )
         if k in seen_overrides:
             die(f"--param {k}: given more than once")
         seen_overrides.add(k)
@@ -349,7 +434,9 @@ def main() -> int:
             if float(values[name]) > float(bound):
                 die(f"--param {name}={values[name]} exceeds the contract bound max={bound}")
         except (TypeError, ValueError):
-            die(f"--param {name}={values[name]!r} is not comparable with the declared max={bound!r}")
+            die(
+                f"--param {name}={values[name]!r} is not comparable with the declared max={bound!r}"
+            )
 
     guardrails = spec.get("guardrails") or {}
     max_rows = guardrails.get("max_rows")
@@ -397,15 +484,24 @@ def main() -> int:
 
         sql = sql_path.read_text(encoding="utf-8")
         started = datetime.now(timezone.utc).isoformat(timespec="seconds")
-        resp = execute(args.profile, args.warehouse, sql,
-                       coerce_params(declared_params(sql), values, key), args.timeout,
-                       row_cap=max_rows)
+        resp = execute(
+            args.profile,
+            args.warehouse,
+            sql,
+            coerce_params(declared_params(sql), values, key),
+            args.timeout,
+            row_cap=max_rows,
+        )
         state = (resp.get("status") or {}).get("state")
         entry["executed_at"] = started
 
         if state != "SUCCEEDED":
-            entry.update(status="error",
-                         error=((resp.get("status") or {}).get("error") or {}).get("message", state or "unknown"))
+            entry.update(
+                status="error",
+                error=((resp.get("status") or {}).get("error") or {}).get(
+                    "message", state or "unknown"
+                ),
+            )
             failed += 1
         else:
             res = resp.get("result") or {}
@@ -436,12 +532,17 @@ def main() -> int:
     if watermark_block:
         wm = next((b for b in envelope["blocks"] if b["key"] == watermark_block), None)
         value = wm["rows"][0][0] if wm and wm.get("rows") and wm["rows"][0] else None
-        envelope["freshness"] = {"watermark": value, "max_lag": freshness_cfg.get("max_lag"),
-                                 "source_block": watermark_block}
+        envelope["freshness"] = {
+            "watermark": value,
+            "max_lag": freshness_cfg.get("max_lag"),
+            "source_block": watermark_block,
+        }
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(envelope, indent=2), encoding="utf-8")
-    print(f"{'FAIL' if failed else 'OK'}: {len(envelope['blocks'])} block(s), {failed} failed -> {args.out}")
+    print(
+        f"{'FAIL' if failed else 'OK'}: {len(envelope['blocks'])} block(s), {failed} failed -> {args.out}"
+    )
     return 1 if failed else 0
 
 

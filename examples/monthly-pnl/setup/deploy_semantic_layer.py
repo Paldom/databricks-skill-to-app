@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 import time
@@ -25,11 +26,25 @@ TERMINAL = {"SUCCEEDED", "FAILED", "CANCELED", "CLOSED"}
 
 
 def run_sql(profile: str, warehouse: str, statement: str, timeout_s: int = 600) -> dict:
-    cmd = ["databricks", "api", "post", STATEMENTS, "--profile", profile, "--json", json.dumps({
-        "warehouse_id": warehouse, "statement": statement,
-        "format": "JSON_ARRAY", "disposition": "INLINE",
-        "wait_timeout": "30s", "on_wait_timeout": "CONTINUE",
-    })]
+    cmd = [
+        "databricks",
+        "api",
+        "post",
+        STATEMENTS,
+        "--profile",
+        profile,
+        "--json",
+        json.dumps(
+            {
+                "warehouse_id": warehouse,
+                "statement": statement,
+                "format": "JSON_ARRAY",
+                "disposition": "INLINE",
+                "wait_timeout": "30s",
+                "on_wait_timeout": "CONTINUE",
+            }
+        ),
+    ]
     proc = subprocess.run(cmd, capture_output=True, text=True)
     if proc.returncode != 0:
         print(f"ERROR: CLI failed: {proc.stderr.strip() or proc.stdout.strip()}", file=sys.stderr)
@@ -42,33 +57,60 @@ def run_sql(profile: str, warehouse: str, statement: str, timeout_s: int = 600) 
             return {"status": {"state": "CANCELED", "error": {"message": "timed out"}}}
         time.sleep(3)
         got = subprocess.run(
-            ["databricks", "api", "get", f"{STATEMENTS}{resp['statement_id']}", "--profile", profile],
-            capture_output=True, text=True)
+            [
+                "databricks",
+                "api",
+                "get",
+                f"{STATEMENTS}{resp['statement_id']}",
+                "--profile",
+                profile,
+            ],
+            capture_output=True,
+            text=True,
+        )
         resp = json.loads(got.stdout)
     return resp
 
 
+IDENTIFIER_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+
+
 def main() -> int:
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     ap.add_argument("--profile", required=True, help="Databricks CLI profile (never auto-selected)")
     ap.add_argument("--warehouse", required=True)
     ap.add_argument("--catalog", default="demo")
     ap.add_argument("--schema", default="pnl_demo")
     args = ap.parse_args()
 
+    # Catalog and schema are SQL *identifiers*, which cannot be bound as
+    # parameters - so they are validated instead of interpolated blind.
+    for label, value in (("--catalog", args.catalog), ("--schema", args.schema)):
+        if not IDENTIFIER_RE.fullmatch(value):
+            ap.error(f"{label} must match {IDENTIFIER_RE.pattern} (got {value!r})")
+
     here = Path(__file__).resolve().parent
     fqn = f"{args.catalog}.{args.schema}"
     steps: list[tuple[str, str]] = [
-        ("create schema", f"CREATE SCHEMA IF NOT EXISTS {fqn} "
-                          f"COMMENT 'Worked example for databricks-skill-to-app'"),
+        (
+            "create schema",
+            f"CREATE SCHEMA IF NOT EXISTS {fqn} "
+            f"COMMENT 'Worked example for databricks-skill-to-app'",
+        ),
     ]
     for f in sorted(here.glob("*.sql")):
         sql = f.read_text(encoding="utf-8").replace("demo.pnl_demo", fqn)
         steps.append((f.name, sql))
-    steps.append(("verify metric view",
-                  f"SELECT `Booked Month`, MEASURE(`Revenue`) AS revenue, "
-                  f"MEASURE(`Gross Margin Pct`) AS margin_pct "
-                  f"FROM {fqn}.pnl_metrics GROUP BY ALL ORDER BY `Booked Month` DESC LIMIT 3"))
+    steps.append(
+        (
+            "verify metric view",
+            f"SELECT `Booked Month`, MEASURE(`Revenue`) AS revenue, "  # noqa: S608 - identifiers validated against IDENTIFIER_RE
+            f"MEASURE(`Gross Margin Pct`) AS margin_pct "
+            f"FROM {fqn}.pnl_metrics GROUP BY ALL ORDER BY `Booked Month` DESC LIMIT 3",
+        )
+    )
 
     for label, sql in steps:
         resp = run_sql(args.profile, args.warehouse, sql)

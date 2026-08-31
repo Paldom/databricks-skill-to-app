@@ -21,9 +21,19 @@ import sys
 from pathlib import Path
 
 PARAM_TYPES = {
-    "STRING", "BOOLEAN", "DATE", "TIMESTAMP", "BINARY",
-    "INT", "BIGINT", "TINYINT", "SMALLINT",
-    "FLOAT", "DOUBLE", "NUMERIC", "DECIMAL",
+    "STRING",
+    "BOOLEAN",
+    "DATE",
+    "TIMESTAMP",
+    "BINARY",
+    "INT",
+    "BIGINT",
+    "TINYINT",
+    "SMALLINT",
+    "FLOAT",
+    "DOUBLE",
+    "NUMERIC",
+    "DECIMAL",
 }
 BLOCK_KINDS = {"kpi", "table", "chart", "narrative"}
 IDENTITIES = {"service_principal", "user"}
@@ -117,15 +127,23 @@ def parse_params(text: str) -> tuple[dict[str, str], list[str]]:
         name, ptype = m.group(1), m.group(2).upper()
         base = ptype.split("(")[0]
         if base not in PARAM_TYPES:
-            problems.append(f"@param {name}: unsupported type {ptype!r} (allowed: {', '.join(sorted(PARAM_TYPES))})")
+            problems.append(
+                f"@param {name}: unsupported type {ptype!r} (allowed: {', '.join(sorted(PARAM_TYPES))})"
+            )
         if name in declared:
             problems.append(f"@param {name} declared twice")
         declared[name] = base
     return declared, problems
 
 
-def check_sql(path: Path, yaml_params: dict[str, str], allowed_catalogs: list[str],
-              max_rows: int | None, require_total_order: bool, identity: str = "user") -> None:
+def check_sql(
+    path: Path,
+    yaml_params: dict[str, str],
+    allowed_catalogs: list[str],
+    max_rows: int | None,
+    require_total_order: bool,
+    identity: str = "user",
+) -> None:
     where = str(path)
     raw = path.read_text(encoding="utf-8")
     code = strip_sql(raw)
@@ -139,40 +157,76 @@ def check_sql(path: Path, yaml_params: dict[str, str], allowed_catalogs: list[st
         err(where, "empty", "query file has no statement")
         return
     if ";" in body:
-        err(where, "single-statement", "more than one statement — a contract query is exactly one read-only SELECT")
+        err(
+            where,
+            "single-statement",
+            "more than one statement — a contract query is exactly one read-only SELECT",
+        )
     if not re.match(r"^\s*(SELECT|WITH)\b", body, re.IGNORECASE):
         err(where, "read-only", "must start with SELECT or WITH")
     m = FORBIDDEN_RE.search(body)
     if m:
-        err(where, "read-only", f"forbidden construct {m.group(0)!r} — contract queries never write or change session state")
+        err(
+            where,
+            "read-only",
+            f"forbidden construct {m.group(0)!r} — contract queries never write or change session state",
+        )
     m = INTERP_RE.search(raw)
     if m:
-        err(where, "no-interpolation", f"string interpolation {m.group(0)!r} — bind a :parameter instead; markers bind values, interpolation is an injection hole")
+        err(
+            where,
+            "no-interpolation",
+            f"string interpolation {m.group(0)!r} — bind a :parameter instead; markers bind values, interpolation is an injection hole",
+        )
     if re.search(r"SELECT\s+\*", body, re.IGNORECASE):
-        err(where, "no-select-star", "SELECT * — the output schema must be stable enough to type and render")
+        err(
+            where,
+            "no-select-star",
+            "SELECT * — the output schema must be stable enough to type and render",
+        )
 
     used = {m.group(1) for m in PARAM_USE_RE.finditer(code)}
     for name in sorted(used - set(declared) - SERVER_INJECTED):
-        err(where, "param-parity", f":{name} is used but not declared with `-- @param {name} <TYPE>`")
+        err(
+            where,
+            "param-parity",
+            f":{name} is used but not declared with `-- @param {name} <TYPE>`",
+        )
     for name in sorted(set(declared) - used):
         err(where, "param-parity", f"@param {name} is declared but never used")
     for name in sorted(SERVER_INJECTED & set(declared)):
-        err(where, "server-injected", f":{name} is injected by the server and must not carry a @param annotation")
+        err(
+            where,
+            "server-injected",
+            f":{name} is injected by the server and must not carry a @param annotation",
+        )
 
     for m in LIMIT_PARAM_RE.finditer(code):
         name = m.group(1)
         if declared.get(name) not in (None, "INT"):
-            err(where, "limit-int", f":{name} caps LIMIT/OFFSET but is {declared[name]} — Spark requires IntegerType (INVALID_LIMIT_LIKE_EXPRESSION.DATA_TYPE); annotate INT")
+            err(
+                where,
+                "limit-int",
+                f":{name} caps LIMIT/OFFSET but is {declared[name]} — Spark requires IntegerType (INVALID_LIMIT_LIKE_EXPRESSION.DATA_TYPE); annotate INT",
+            )
 
     m = IDENTITY_FN_RE.search(code)
     if m and identity == "service_principal":
-        err(where, "identity-cache", f"{m.group(1)}() makes the result depend on the caller, but this block runs as "
-                                    "the service principal with a cache shared by every user — declare identity: user "
-                                    "and rename the file to .obo.sql")
+        err(
+            where,
+            "identity-cache",
+            f"{m.group(1)}() makes the result depend on the caller, but this block runs as "
+            "the service principal with a cache shared by every user — declare identity: user "
+            "and rename the file to .obo.sql",
+        )
 
     has_limit = bool(re.search(r"\bLIMIT\b", code, re.IGNORECASE))
     if has_limit and require_total_order and not re.search(r"\bORDER\s+BY\b", code, re.IGNORECASE):
-        err(where, "total-order", "LIMIT without ORDER BY returns an arbitrary sample, not the top N — order by the measure plus tie-breaker dimensions")
+        err(
+            where,
+            "total-order",
+            "LIMIT without ORDER BY returns an arbitrary sample, not the top N — order by the measure plus tie-breaker dimensions",
+        )
     if max_rows is not None:
         for m in LIMIT_LITERAL_RE.finditer(code):
             if int(m.group(1)) > max_rows:
@@ -184,15 +238,27 @@ def check_sql(path: Path, yaml_params: dict[str, str], allowed_catalogs: list[st
         if clean.lower() in ctes or not clean or clean.startswith("("):
             continue
         if not FQN_RE.match(clean):
-            err(where, "fully-qualified", f"relation {clean!r} is not catalog.schema.object — an unqualified name resolves against the session default")
+            err(
+                where,
+                "fully-qualified",
+                f"relation {clean!r} is not catalog.schema.object — an unqualified name resolves against the session default",
+            )
             continue
         catalog = clean.split(".")[0]
         if allowed_catalogs and catalog not in allowed_catalogs:
-            err(where, "allowed-catalogs", f"relation {clean!r} reads catalog {catalog!r}, which is not in semantic_layer.allowed_catalogs")
+            err(
+                where,
+                "allowed-catalogs",
+                f"relation {clean!r} reads catalog {catalog!r}, which is not in semantic_layer.allowed_catalogs",
+            )
 
     for name, ptype in sorted(declared.items()):
         if name in yaml_params and yaml_params[name] != ptype:
-            err(where, "param-parity", f"@param {name} is {ptype} but report.yaml declares {yaml_params[name]}")
+            err(
+                where,
+                "param-parity",
+                f"@param {name} is {ptype} but report.yaml declares {yaml_params[name]}",
+            )
 
 
 def check_metric_views(path: Path, allowed_catalogs: list[str]) -> None:
@@ -212,24 +278,42 @@ def check_metric_views(path: Path, allowed_catalogs: list[str]) -> None:
             continue
         source = entry.get("source")
         if not isinstance(source, str) or not FQN_RE.match(source):
-            err(where, "fqn", f"metricViews.{key}.source must be a three-part catalog.schema.view FQN, got {source!r}")
+            err(
+                where,
+                "fqn",
+                f"metricViews.{key}.source must be a three-part catalog.schema.view FQN, got {source!r}",
+            )
         elif allowed_catalogs and source.split(".")[0] not in allowed_catalogs:
-            err(where, "allowed-catalogs", f"metricViews.{key}.source reads catalog {source.split('.')[0]!r}, not in semantic_layer.allowed_catalogs")
+            err(
+                where,
+                "allowed-catalogs",
+                f"metricViews.{key}.source reads catalog {source.split('.')[0]!r}, not in semantic_layer.allowed_catalogs",
+            )
         executor = entry.get("executor", "app_service_principal")
         if executor not in EXECUTORS:
-            err(where, "executor", f"metricViews.{key}.executor must be one of {sorted(EXECUTORS)}, got {executor!r}")
+            err(
+                where,
+                "executor",
+                f"metricViews.{key}.executor must be one of {sorted(EXECUTORS)}, got {executor!r}",
+            )
 
 
 def check_contract(root: Path) -> None:
     try:
-        import yaml  # noqa: PLC0415
+        import yaml
     except ImportError:
-        print("ERROR: PyYAML is required to read report.yaml — install it with `pip install pyyaml`", file=sys.stderr)
-        raise SystemExit(2)
+        print(
+            "ERROR: PyYAML is required to read report.yaml — install it with `pip install pyyaml`",
+            file=sys.stderr,
+        )
+        raise SystemExit(2) from None
 
     manifest = root / "report.yaml"
     if not manifest.is_file():
-        print(f"ERROR: {manifest} not found — a contract directory must contain report.yaml", file=sys.stderr)
+        print(
+            f"ERROR: {manifest} not found — a contract directory must contain report.yaml",
+            file=sys.stderr,
+        )
         raise SystemExit(2)
     where = str(manifest)
     try:
@@ -256,11 +340,17 @@ def check_contract(root: Path) -> None:
 
     semantic = spec.get("semantic_layer") or {}
     allowed_catalogs = semantic.get("allowed_catalogs") or []
-    if not isinstance(allowed_catalogs, list) or not all(isinstance(c, str) for c in allowed_catalogs):
+    if not isinstance(allowed_catalogs, list) or not all(
+        isinstance(c, str) for c in allowed_catalogs
+    ):
         err(where, "schema", "semantic_layer.allowed_catalogs must be a list of catalog names")
         allowed_catalogs = []
     if not allowed_catalogs:
-        err(where, "allowed-catalogs", "semantic_layer.allowed_catalogs is required — it is the report's blast radius")
+        err(
+            where,
+            "allowed-catalogs",
+            "semantic_layer.allowed_catalogs is required — it is the report's blast radius",
+        )
 
     guardrails = spec.get("guardrails") or {}
     max_rows = guardrails.get("max_rows")
@@ -282,7 +372,11 @@ def check_contract(root: Path) -> None:
 
     genie = spec.get("genie")
     if isinstance(genie, dict) and genie.get("trust") != "generated":
-        err(where, "genie-trust", "genie.trust must be 'generated' — Genie's example SQL guides generation, it does not constrain it")
+        err(
+            where,
+            "genie-trust",
+            "genie.trust must be 'generated' — Genie's example SQL guides generation, it does not constrain it",
+        )
 
     queries = root / "queries"
     if not queries.is_dir():
@@ -310,32 +404,59 @@ def check_contract(root: Path) -> None:
             err(where, "schema", f"{tag}: duplicate block key {key!r}")
         keys.add(key)
         if b.get("kind") not in BLOCK_KINDS:
-            err(where, "schema", f"{tag}: kind must be one of {sorted(BLOCK_KINDS)}, got {b.get('kind')!r}")
+            err(
+                where,
+                "schema",
+                f"{tag}: kind must be one of {sorted(BLOCK_KINDS)}, got {b.get('kind')!r}",
+            )
         identity = b.get("identity")
         if identity not in IDENTITIES:
-            err(where, "schema", f"{tag}: identity must be one of {sorted(IDENTITIES)}, got {identity!r}")
+            err(
+                where,
+                "schema",
+                f"{tag}: identity must be one of {sorted(IDENTITIES)}, got {identity!r}",
+            )
         if b.get("trust") not in TRUST:
-            err(where, "schema", f"{tag}: trust must be one of {sorted(TRUST)}, got {b.get('trust')!r}")
+            err(
+                where,
+                "schema",
+                f"{tag}: trust must be one of {sorted(TRUST)}, got {b.get('trust')!r}",
+            )
 
         plain, obo = queries / f"{key}.sql", queries / f"{key}.obo.sql"
         want = obo if identity == "user" else plain
         other = plain if identity == "user" else obo
         if not want.is_file():
-            hint = (" — identity: user means the file must be named "
-                    f"{key}.obo.sql so it executes on behalf of the signed-in user"
-                    if identity == "user" else "")
+            hint = (
+                " — identity: user means the file must be named "
+                f"{key}.obo.sql so it executes on behalf of the signed-in user"
+                if identity == "user"
+                else ""
+            )
             err(where, "identity-file", f"{tag}: expected {want.name} in queries/{hint}")
             if other.is_file():
-                err(where, "identity-file", f"{tag}: found {other.name} instead — rename it to match the declared identity")
+                err(
+                    where,
+                    "identity-file",
+                    f"{tag}: found {other.name} instead — rename it to match the declared identity",
+                )
         else:
             referenced[want] = identity
 
     if freshness and freshness not in keys:
-        err(where, "freshness", f"guardrails.freshness.watermark_block {freshness!r} is not a declared block")
+        err(
+            where,
+            "freshness",
+            f"guardrails.freshness.watermark_block {freshness!r} is not a declared block",
+        )
 
     for f in sorted(queries.glob("*.sql")):
         if f not in referenced:
-            err(str(f), "orphan", "no block in report.yaml references this query — unreferenced SQL is ungoverned")
+            err(
+                str(f),
+                "orphan",
+                "no block in report.yaml references this query — unreferenced SQL is ungoverned",
+            )
 
     for f in sorted(referenced):
         check_sql(f, yaml_params, allowed_catalogs, max_rows, require_total_order, referenced[f])
@@ -344,7 +465,11 @@ def check_contract(root: Path) -> None:
     if mv_rel:
         mv_path = root / mv_rel
         if not mv_path.is_file():
-            err(str(mv_path), "layout", "semantic_layer.metric_views points at a file that does not exist")
+            err(
+                str(mv_path),
+                "layout",
+                "semantic_layer.metric_views points at a file that does not exist",
+            )
         else:
             check_metric_views(mv_path, allowed_catalogs)
 
@@ -418,7 +543,7 @@ def _write_contract(root: Path, yaml_text: str, sql: str, obo: str, mv: str) -> 
 
 def selftest() -> int:
     """Every rule must fire on a deliberately broken contract and stay silent on a good one."""
-    import tempfile  # noqa: PLC0415
+    import tempfile
 
     global errors
     failures: list[str] = []
@@ -433,22 +558,91 @@ def selftest() -> int:
 
     # (label, sql mutation, expected rule tag)
     sql_cases = [
-        ("undeclared param", SELFTEST_GOOD_SQL.replace("-- @param start_date DATE\n", ""), "param-parity"),
+        (
+            "undeclared param",
+            SELFTEST_GOOD_SQL.replace("-- @param start_date DATE\n", ""),
+            "param-parity",
+        ),
         ("unused param", SELFTEST_GOOD_SQL + "\n-- @param unused STRING\n", "param-parity"),
-        ("limit as bigint", SELFTEST_GOOD_SQL.replace("row_limit INT", "row_limit BIGINT"), "limit-int"),
-        ("limit without order by", SELFTEST_GOOD_SQL.replace("ORDER BY amount DESC, entity\n", ""), "total-order"),
-        ("select star", SELFTEST_GOOD_SQL.replace("SELECT entity, SUM(amount) AS amount", "SELECT *"), "no-select-star"),
-        ("interpolation", SELFTEST_GOOD_SQL.replace(":start_date", "'${start_date}'"), "no-interpolation"),
-        ("write statement", SELFTEST_GOOD_SQL + "\n;DROP TABLE main.finance.pnl_fact\n", "read-only"),
-        ("unqualified relation", SELFTEST_GOOD_SQL.replace("main.finance.pnl_fact", "pnl_fact"), "fully-qualified"),
-        ("foreign catalog", SELFTEST_GOOD_SQL.replace("main.finance.pnl_fact", "prod.finance.pnl_fact"), "allowed-catalogs"),
-        ("bad param type", SELFTEST_GOOD_SQL.replace("start_date DATE", "start_date VARCHAR"), "param-decl"),
-        ("server-injected annotated", SELFTEST_GOOD_SQL.replace("-- @param row_limit INT", "-- @param row_limit INT\n-- @param workspaceId STRING") + "\nAND ws = :workspaceId", "server-injected"),
-        ("literal over cap", SELFTEST_GOOD_SQL.replace("LIMIT :row_limit", "LIMIT 99999"), "max-rows"),
-        ("type disagreement", SELFTEST_GOOD_SQL.replace("start_date DATE", "start_date STRING"), "param-parity"),
-        ("identity fn on shared cache", SELFTEST_GOOD_SQL.replace("WHERE booked_on >= :start_date", "WHERE booked_on >= :start_date AND owner = current_user()"), "identity-cache"),
-        ("dynamic relation identifier", SELFTEST_GOOD_SQL.replace("FROM main.finance.pnl_fact", "FROM IDENTIFIER(:start_date)"), "fully-qualified"),
-        ("write hidden after a CTE", SELFTEST_GOOD_SQL.replace("SELECT entity,", "WITH x AS (SELECT 1) DELETE FROM main.finance.pnl_fact; SELECT entity,"), "read-only"),
+        (
+            "limit as bigint",
+            SELFTEST_GOOD_SQL.replace("row_limit INT", "row_limit BIGINT"),
+            "limit-int",
+        ),
+        (
+            "limit without order by",
+            SELFTEST_GOOD_SQL.replace("ORDER BY amount DESC, entity\n", ""),
+            "total-order",
+        ),
+        (
+            "select star",
+            SELFTEST_GOOD_SQL.replace("SELECT entity, SUM(amount) AS amount", "SELECT *"),
+            "no-select-star",
+        ),
+        (
+            "interpolation",
+            SELFTEST_GOOD_SQL.replace(":start_date", "'${start_date}'"),
+            "no-interpolation",
+        ),
+        (
+            "write statement",
+            SELFTEST_GOOD_SQL + "\n;DROP TABLE main.finance.pnl_fact\n",
+            "read-only",
+        ),
+        (
+            "unqualified relation",
+            SELFTEST_GOOD_SQL.replace("main.finance.pnl_fact", "pnl_fact"),
+            "fully-qualified",
+        ),
+        (
+            "foreign catalog",
+            SELFTEST_GOOD_SQL.replace("main.finance.pnl_fact", "prod.finance.pnl_fact"),
+            "allowed-catalogs",
+        ),
+        (
+            "bad param type",
+            SELFTEST_GOOD_SQL.replace("start_date DATE", "start_date VARCHAR"),
+            "param-decl",
+        ),
+        (
+            "server-injected annotated",
+            SELFTEST_GOOD_SQL.replace(
+                "-- @param row_limit INT", "-- @param row_limit INT\n-- @param workspaceId STRING"
+            )
+            + "\nAND ws = :workspaceId",
+            "server-injected",
+        ),
+        (
+            "literal over cap",
+            SELFTEST_GOOD_SQL.replace("LIMIT :row_limit", "LIMIT 99999"),
+            "max-rows",
+        ),
+        (
+            "type disagreement",
+            SELFTEST_GOOD_SQL.replace("start_date DATE", "start_date STRING"),
+            "param-parity",
+        ),
+        (
+            "identity fn on shared cache",
+            SELFTEST_GOOD_SQL.replace(
+                "WHERE booked_on >= :start_date",
+                "WHERE booked_on >= :start_date AND owner = current_user()",
+            ),
+            "identity-cache",
+        ),
+        (
+            "dynamic relation identifier",
+            SELFTEST_GOOD_SQL.replace("FROM main.finance.pnl_fact", "FROM IDENTIFIER(:start_date)"),
+            "fully-qualified",
+        ),
+        (
+            "write hidden after a CTE",
+            SELFTEST_GOOD_SQL.replace(
+                "SELECT entity,",
+                "WITH x AS (SELECT 1) DELETE FROM main.finance.pnl_fact; SELECT entity,",
+            ),
+            "read-only",
+        ),
     ]
     for label, sql, rule in sql_cases:
         with tempfile.TemporaryDirectory() as tmp:
@@ -457,18 +651,44 @@ def selftest() -> int:
             errors = []
             check_contract(root)
             if not any(f"[{rule}]" in e for e in errors):
-                failures.append(f"{label}: expected rule [{rule}] to fire, got: {errors or 'no errors'}")
+                failures.append(
+                    f"{label}: expected rule [{rule}] to fire, got: {errors or 'no errors'}"
+                )
 
     yaml_cases = [
-        ("identity/file mismatch", SELFTEST_GOOD_YAML.replace("    identity: user", "    identity: service_principal"), "identity-file"),
+        (
+            "identity/file mismatch",
+            SELFTEST_GOOD_YAML.replace("    identity: user", "    identity: service_principal"),
+            "identity-file",
+        ),
         ("bad semver", SELFTEST_GOOD_YAML.replace("version: 1.0.0", "version: v1"), "semver"),
         ("name mismatch", SELFTEST_GOOD_YAML.replace("name: good", "name: other"), "name"),
-        ("no allowed catalogs", SELFTEST_GOOD_YAML.replace("  allowed_catalogs: [main]", "  allowed_catalogs: []"), "allowed-catalogs"),
+        (
+            "no allowed catalogs",
+            SELFTEST_GOOD_YAML.replace("  allowed_catalogs: [main]", "  allowed_catalogs: []"),
+            "allowed-catalogs",
+        ),
         ("bad kind", SELFTEST_GOOD_YAML.replace("    kind: kpi", "    kind: gauge"), "schema"),
-        ("genie trust", SELFTEST_GOOD_YAML + "genie:\n  space_id: abc\n  trust: certified\n", "genie-trust"),
-        ("missing owner", SELFTEST_GOOD_YAML.replace("owner: someone@example.com\n", ""), "required"),
-        ("bad max_rows", SELFTEST_GOOD_YAML.replace("  max_rows: 5000", "  max_rows: 0"), "guardrails"),
-        ("unknown watermark", SELFTEST_GOOD_YAML + "  freshness:\n    watermark_block: nope\n", "freshness"),
+        (
+            "genie trust",
+            SELFTEST_GOOD_YAML + "genie:\n  space_id: abc\n  trust: certified\n",
+            "genie-trust",
+        ),
+        (
+            "missing owner",
+            SELFTEST_GOOD_YAML.replace("owner: someone@example.com\n", ""),
+            "required",
+        ),
+        (
+            "bad max_rows",
+            SELFTEST_GOOD_YAML.replace("  max_rows: 5000", "  max_rows: 0"),
+            "guardrails",
+        ),
+        (
+            "unknown watermark",
+            SELFTEST_GOOD_YAML + "  freshness:\n    watermark_block: nope\n",
+            "freshness",
+        ),
     ]
     for label, text, rule in yaml_cases:
         with tempfile.TemporaryDirectory() as tmp:
@@ -477,11 +697,17 @@ def selftest() -> int:
             errors = []
             check_contract(root)
             if not any(f"[{rule}]" in e for e in errors):
-                failures.append(f"{label}: expected rule [{rule}] to fire, got: {errors or 'no errors'}")
+                failures.append(
+                    f"{label}: expected rule [{rule}] to fire, got: {errors or 'no errors'}"
+                )
 
     mv_cases = [
         ("two-part fqn", '{"metricViews": {"pnl": {"source": "finance.pnl_metrics"}}}', "fqn"),
-        ("bad executor", '{"metricViews": {"pnl": {"source": "main.finance.pnl_metrics", "executor": "admin"}}}', "executor"),
+        (
+            "bad executor",
+            '{"metricViews": {"pnl": {"source": "main.finance.pnl_metrics", "executor": "admin"}}}',
+            "executor",
+        ),
         ("not json", "{nope", "json"),
     ]
     for label, mv, rule in mv_cases:
@@ -491,7 +717,9 @@ def selftest() -> int:
             errors = []
             check_contract(root)
             if not any(f"[{rule}]" in e for e in errors):
-                failures.append(f"{label}: expected rule [{rule}] to fire, got: {errors or 'no errors'}")
+                failures.append(
+                    f"{label}: expected rule [{rule}] to fire, got: {errors or 'no errors'}"
+                )
 
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp) / "good"
@@ -500,7 +728,9 @@ def selftest() -> int:
         errors = []
         check_contract(root)
         if not any("[orphan]" in e for e in errors):
-            failures.append(f"orphan query: expected rule [orphan] to fire, got: {errors or 'no errors'}")
+            failures.append(
+                f"orphan query: expected rule [orphan] to fire, got: {errors or 'no errors'}"
+            )
 
     # False positives are as damaging as misses: a keyword in a comment or a semicolon inside a
     # string literal must not trip the pattern rules.
@@ -514,7 +744,10 @@ def selftest() -> int:
         errors = []
         check_contract(root)
         if errors:
-            failures.append("false positive on keywords inside a comment/string literal:\n  " + "\n  ".join(errors))
+            failures.append(
+                "false positive on keywords inside a comment/string literal:\n  "
+                + "\n  ".join(errors)
+            )
 
     if failures:
         for f in failures:
@@ -526,9 +759,18 @@ def selftest() -> int:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("contract", nargs="?", type=Path, help="path to a contract directory (containing report.yaml)")
-    ap.add_argument("--selftest", action="store_true", help="verify the rules still fire, then exit")
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    ap.add_argument(
+        "contract",
+        nargs="?",
+        type=Path,
+        help="path to a contract directory (containing report.yaml)",
+    )
+    ap.add_argument(
+        "--selftest", action="store_true", help="verify the rules still fire, then exit"
+    )
     args = ap.parse_args()
 
     if args.selftest:

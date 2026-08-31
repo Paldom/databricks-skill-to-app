@@ -27,8 +27,18 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-NUMERIC_TYPES = {"INT", "BIGINT", "SMALLINT", "TINYINT", "FLOAT", "DOUBLE", "DECIMAL", "NUMERIC", "LONG"}
-AREA_MIN_ROWS = 7          # more points than this reads as a series, fewer as categories
+NUMERIC_TYPES = {
+    "INT",
+    "BIGINT",
+    "SMALLINT",
+    "TINYINT",
+    "FLOAT",
+    "DOUBLE",
+    "DECIMAL",
+    "NUMERIC",
+    "LONG",
+}
+AREA_MIN_ROWS = 7  # more points than this reads as a series, fewer as categories
 
 
 def esc(value: object) -> str:
@@ -86,6 +96,7 @@ def to_number(value: object):
 
 # --------------------------------------------------------------------------- freshness
 
+
 def parse_date(value: object) -> datetime | None:
     try:
         ts = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
@@ -120,19 +131,31 @@ def timeframe_html(params: dict, freshness: dict) -> str:
     if not (start and end) or end <= start:
         if not watermark:
             return ""
-        return (f'<div class="timeframe"><p class="tf-note">complete through '
-                f'{esc(month_label(watermark))}</p></div>')
+        return (
+            f'<div class="timeframe"><p class="tf-note">complete through '
+            f"{esc(month_label(watermark))}</p></div>"
+        )
 
     covered = 1.0
     if watermark:
-        covered = max(0.0, min(1.0, (watermark - start).total_seconds() / (end - start).total_seconds()))
+        covered = max(
+            0.0, min(1.0, (watermark - start).total_seconds() / (end - start).total_seconds())
+        )
     months = max(1, min(24, round((end - start).days / 30.44) + 1))
     filled = max(1, round(covered * months)) if watermark else 0
     segs = "".join(
         f'<span class="tf-seg {"now" if i == filled - 1 else "on" if i < filled else ""}"></span>'
-        for i in range(months))
-    note = (f"complete through {esc(month_label(watermark))}" if covered >= 0.999
-            else f"data ends {esc(month_label(watermark))}") if watermark else "no watermark"
+        for i in range(months)
+    )
+    note = (
+        (
+            f"complete through {esc(month_label(watermark))}"
+            if covered >= 0.999
+            else f"data ends {esc(month_label(watermark))}"
+        )
+        if watermark
+        else "no watermark"
+    )
     if state == "stale":
         note += " · stale"
     return (
@@ -147,6 +170,7 @@ def timeframe_html(params: dict, freshness: dict) -> str:
 
 # --------------------------------------------------------------------------- blocks
 
+
 def card(body: str, extra: str = "") -> str:
     cls = f"card {extra}".strip()
     return f'<div class="{cls}">{body}</div>'
@@ -158,8 +182,10 @@ def summary_html(block: dict) -> str:
     text = (s.get("text") if isinstance(s, dict) else s) if s else None
     if not text:
         return ""
-    return (f'<p class="insight"><span class="insight-mark" aria-hidden="true">AI</span>'
-            f'<span class="sr-only">AI-generated summary: </span>{esc(text)}</p>')
+    return (
+        f'<p class="insight"><span class="insight-mark" aria-hidden="true">AI</span>'
+        f'<span class="sr-only">AI-generated summary: </span>{esc(text)}</p>'
+    )
 
 
 def partial_alert(block: dict) -> str:
@@ -173,9 +199,12 @@ def state_card(block: dict) -> str:
     """A failed block stays on the page. Silence reads as zero, the costliest bug a report has."""
     head = f'<p class="card-title">{esc(block.get("title"))}</p>'
     if block.get("status") == "error":
-        return card(f'{head}<p class="empty"><span class="flag">Failed</span>'
-                    f"this block did not return data.</p>"
-                    f'<code>{esc(block.get("error"))}</code>', "block-error")
+        return card(
+            f'{head}<p class="empty"><span class="flag">Failed</span>'
+            f"this block did not return data.</p>"
+            f"<code>{esc(block.get('error'))}</code>",
+            "block-error",
+        )
     return card(f'{head}<p class="empty">No rows for the selected parameters.</p>')
 
 
@@ -184,12 +213,16 @@ def kpi_cards(block: dict) -> str:
     if not rows:
         return state_card({**block, "status": "empty"})
     out = []
-    for col, value in zip(cols, rows[0]):
+    for col, value in zip(cols, rows[0], strict=False):
         numeric = is_numeric(col)
         n = to_number(value) if numeric else None
         badge = '<span class="badge down">▼ negative</span>' if n is not None and n < 0 else ""
-        out.append(card(f'<p class="card-desc">{esc(label(col.get("name")))}</p>'
-                        f'<p class="stat">{fmt(value, numeric)}</p>{badge}'))
+        out.append(
+            card(
+                f'<p class="card-desc">{esc(label(col.get("name")))}</p>'
+                f'<p class="stat">{fmt(value, numeric)}</p>{badge}'
+            )
+        )
     return "".join(out)
 
 
@@ -200,14 +233,16 @@ def table_card(block: dict) -> str:
     body = ""
     for r in rows:
         cells = []
-        for value, num in zip(r, numeric):
+        for value, num in zip(r, numeric, strict=False):
             n = to_number(value) if num else None
             cls = ' class="neg"' if n is not None and n < 0 else ""
             cells.append(f"<td{cls}>{fmt(value, num)}</td>")
         body += "<tr>" + "".join(cells) + "</tr>"
-    return card(f'<p class="card-title">{esc(block.get("title"))}</p>{partial_alert(block)}'
-                f'<div class="table-wrap"><table><thead><tr>{head}</tr></thead>'
-                f"<tbody>{body}</tbody></table></div>{summary_html(block)}")
+    return card(
+        f'<p class="card-title">{esc(block.get("title"))}</p>{partial_alert(block)}'
+        f'<div class="table-wrap"><table><thead><tr>{head}</tr></thead>'
+        f"<tbody>{body}</tbody></table></div>{summary_html(block)}"
+    )
 
 
 def chart_card(block: dict, specs: dict) -> str:
@@ -217,15 +252,18 @@ def chart_card(block: dict, specs: dict) -> str:
         return table_card(block)
 
     x_key = str(cols[0].get("name"))
-    series = [{"key": str(c.get("name")), "label": label(c.get("name"))}
-              for c in cols[1:] if is_numeric(c)]
+    series = [
+        {"key": str(c.get("name")), "label": label(c.get("name"))}
+        for c in cols[1:]
+        if is_numeric(c)
+    ]
     if not series:
         return table_card(block)
 
     data, values = [], []
     for r in rows:
         point = {x_key: str(r[0])}
-        for col, value in zip(cols[1:], r[1:]):
+        for col, value in zip(cols[1:], r[1:], strict=False):
             n = to_number(value)
             if n is not None:
                 point[str(col.get("name"))] = n
@@ -241,32 +279,46 @@ def chart_card(block: dict, specs: dict) -> str:
     # Round the bounds to a nice step, or the axis prints ticks like 47.634.
     step = 10 ** math.floor(math.log10(max(hi - lo, abs(hi), 1e-9)))
     zero_based = 0 <= lo <= (hi - lo)
-    domain = ([0, math.ceil((hi + pad) / step) * step] if zero_based
-              else [math.floor((lo - pad) / step) * step, math.ceil((hi + pad) / step) * step])
+    domain = (
+        [0, math.ceil((hi + pad) / step) * step]
+        if zero_based
+        else [math.floor((lo - pad) / step) * step, math.ceil((hi + pad) / step) * step]
+    )
     domain = [round(d, 6) for d in domain]
 
     chart_id = "chart-" + re.sub(r"[^a-z0-9_-]", "", str(block.get("key")).lower())
     specs[chart_id] = {
         "type": "area" if len(rows) >= AREA_MIN_ROWS else "bar",
-        "xKey": x_key, "series": series, "data": data, "domain": domain,
+        "xKey": x_key,
+        "series": series,
+        "data": data,
+        "domain": domain,
     }
-    axis_note = ("" if zero_based else
-                 f'<p class="note">Axis spans {domain[0]:g} to {domain[1]:g}, not zero-based.</p>')
-    return card(f'<p class="card-title">{esc(block.get("title"))}</p>{partial_alert(block)}'
-                f'<div class="chart-box"><div id="{chart_id}" style="height:100%">'
-                f'<p class="chart-fallback">Chart runtime unavailable — this file needs a network '
-                f"connection to draw plots. The figures are in the table blocks.</p></div></div>"
-                f"{axis_note}{summary_html(block)}")
+    axis_note = (
+        ""
+        if zero_based
+        else f'<p class="note">Axis spans {domain[0]:g} to {domain[1]:g}, not zero-based.</p>'
+    )
+    return card(
+        f'<p class="card-title">{esc(block.get("title"))}</p>{partial_alert(block)}'
+        f'<div class="chart-box"><div id="{chart_id}" style="height:100%">'
+        f'<p class="chart-fallback">Chart runtime unavailable — this file needs a network '
+        f"connection to draw plots. The figures are in the table blocks.</p></div></div>"
+        f"{axis_note}{summary_html(block)}"
+    )
 
 
 def narrative_card(block: dict) -> str:
     rows = block.get("rows") or []
     text = rows[0][0] if rows and rows[0] else ""
-    return card(f'<p class="card-title">{esc(block.get("title"))}</p>'
-                f"<p>{esc(text)}</p>{summary_html(block)}")
+    return card(
+        f'<p class="card-title">{esc(block.get("title"))}</p>'
+        f"<p>{esc(text)}</p>{summary_html(block)}"
+    )
 
 
 # --------------------------------------------------------------------------- page
+
 
 def render(envelope: dict, style: str, template: str, bootstrap: str) -> tuple[str, int]:
     contract = envelope.get("contract") or {}
@@ -280,8 +332,11 @@ def render(envelope: dict, style: str, template: str, bootstrap: str) -> tuple[s
         status = block.get("status")
         # An unrecognised status is a failure, not a success.
         if status not in ("ok", "partial", "empty", "error"):
-            block = {**block, "status": "error",
-                     "error": f"unknown block status {status!r} — refusing to render it as data"}
+            block = {
+                **block,
+                "status": "error",
+                "error": f"unknown block status {status!r} — refusing to render it as data",
+            }
             status = "error"
         # The watermark block feeds the header spine; rendering it again as a lone date is noise.
         if block.get("key") == watermark_key and status in ("ok", "empty"):
@@ -309,41 +364,49 @@ def render(envelope: dict, style: str, template: str, bootstrap: str) -> tuple[s
         body += f'<div class="grid-main">{"".join(panels)}</div>'
 
     params = envelope.get("params") or {}
-    subtitle = esc(" · ".join(f"{k} {v}" for k, v in params.items())) or esc(contract.get("owner") or "")
+    subtitle = esc(" · ".join(f"{k} {v}" for k, v in params.items())) or esc(
+        contract.get("owner") or ""
+    )
     meta = timeframe_html(params, freshness)
     if freshness_state(freshness) == "stale":
-        meta += (f'<p class="alert">Data is older than the contract\'s limit of '
-                 f'{esc(freshness.get("max_lag"))}.</p>')
+        meta += (
+            f'<p class="alert">Data is older than the contract\'s limit of '
+            f"{esc(freshness.get('max_lag'))}.</p>"
+        )
 
     audit = {
-        "contract": f'{contract.get("name")} v{contract.get("version")}',
+        "contract": f"{contract.get('name')} v{contract.get('version')}",
         "owner": contract.get("owner"),
         "generated_at": envelope.get("generated_at"),
         "warehouse": envelope.get("warehouse_id"),
         "executed_as": envelope.get("attested_principal") or "unverified",
         "watermark": freshness.get("watermark"),
-        "blocks": {b.get("key"): f'{b.get("trust")}/{b.get("identity")}/{b.get("status")}'
-                   for b in envelope.get("blocks") or []},
+        "blocks": {
+            b.get("key"): f"{b.get('trust')}/{b.get('identity')}/{b.get('status')}"
+            for b in envelope.get("blocks") or []
+        },
     }
     trail = "<!-- provenance " + json.dumps(audit).replace("--", "- -") + " -->"
 
-    page = (template
-            .replace("{{STYLE}}", style)
-            .replace("{{TITLE}}", esc(contract.get("title") or "Report"))
-            .replace("{{SUBTITLE}}", subtitle)
-            .replace("{{META}}", meta)
-            .replace("{{BLOCKS}}", body)
-            .replace("{{CHART_DATA}}", json_for_script(specs))
-            .replace("{{BOOTSTRAP}}", bootstrap)
-            .replace("{{PROVENANCE}}", trail))
+    page = (
+        template.replace("{{STYLE}}", style)
+        .replace("{{TITLE}}", esc(contract.get("title") or "Report"))
+        .replace("{{SUBTITLE}}", subtitle)
+        .replace("{{META}}", meta)
+        .replace("{{BLOCKS}}", body)
+        .replace("{{CHART_DATA}}", json_for_script(specs))
+        .replace("{{BOOTSTRAP}}", bootstrap)
+        .replace("{{PROVENANCE}}", trail)
+    )
     return page, failed
 
 
 # --------------------------------------------------------------------------- self-test
 
+
 def selftest() -> int:
     """Hostile values must never escape into markup — or out of the JSON script block."""
-    payload = '</script><img src=x onerror=alert(1)>'
+    payload = "</script><img src=x onerror=alert(1)>"
     envelope = {
         "contract": {"name": "t", "version": "1.0.0", "title": payload, "owner": "o"},
         "generated_at": "2026-01-01T00:00:00Z",
@@ -351,30 +414,68 @@ def selftest() -> int:
         "attested_principal": "someone@example.com",
         "freshness": {"watermark": "2020-01-01T00:00:00Z", "max_lag": "26h"},
         "blocks": [
-            {"key": "k", "kind": "kpi", "title": payload, "identity": "user", "trust": "certified",
-             "status": "ok", "columns": [{"name": payload, "type": "DECIMAL(18,2)"},
-                                         {"name": "loss", "type": "DECIMAL(18,2)"}],
-             "rows": [["12345.678", "-42"]], "summary": {"text": payload}},
-            {"key": "t2", "kind": "table", "title": "T", "identity": "service_principal",
-             "trust": "certified", "status": "ok",
-             "columns": [{"name": "a", "type": "STRING"}], "rows": [[payload]]},
-            {"key": "c", "kind": "chart", "title": payload, "identity": "service_principal",
-             "trust": "certified", "status": "ok",
-             "columns": [{"name": payload, "type": "STRING"}, {"name": "v", "type": "DOUBLE"}],
-             "rows": [[payload, str(41 + i * 0.5)] for i in range(12)]},
-            {"key": "big", "kind": "table", "title": "Big", "identity": "user", "trust": "certified",
-             "status": "ok", "columns": [{"name": "n", "type": "BIGINT"}],
-             "rows": [["9007199254740993"]]},
+            {
+                "key": "k",
+                "kind": "kpi",
+                "title": payload,
+                "identity": "user",
+                "trust": "certified",
+                "status": "ok",
+                "columns": [
+                    {"name": payload, "type": "DECIMAL(18,2)"},
+                    {"name": "loss", "type": "DECIMAL(18,2)"},
+                ],
+                "rows": [["12345.678", "-42"]],
+                "summary": {"text": payload},
+            },
+            {
+                "key": "t2",
+                "kind": "table",
+                "title": "T",
+                "identity": "service_principal",
+                "trust": "certified",
+                "status": "ok",
+                "columns": [{"name": "a", "type": "STRING"}],
+                "rows": [[payload]],
+            },
+            {
+                "key": "c",
+                "kind": "chart",
+                "title": payload,
+                "identity": "service_principal",
+                "trust": "certified",
+                "status": "ok",
+                "columns": [{"name": payload, "type": "STRING"}, {"name": "v", "type": "DOUBLE"}],
+                "rows": [[payload, str(41 + i * 0.5)] for i in range(12)],
+            },
+            {
+                "key": "big",
+                "kind": "table",
+                "title": "Big",
+                "identity": "user",
+                "trust": "certified",
+                "status": "ok",
+                "columns": [{"name": "n", "type": "BIGINT"}],
+                "rows": [["9007199254740993"]],
+            },
             {"key": "e", "kind": "table", "title": "E", "status": "error", "error": payload},
-            {"key": "weird", "kind": "kpi", "title": "W", "status": "totally-fine",
-             "columns": [{"name": "x", "type": "INT"}], "rows": [["1"]]},
+            {
+                "key": "weird",
+                "kind": "kpi",
+                "title": "W",
+                "status": "totally-fine",
+                "columns": [{"name": "x", "type": "INT"}],
+                "rows": [["1"]],
+            },
         ],
     }
     here = Path(__file__).resolve().parent
-    page, failed = render(envelope,
-                          (here / "report.css").read_text(encoding="utf-8"),
-                          (here / "report-template.html").read_text(encoding="utf-8"),
-                          (here / "report-charts.js").read_text(encoding="utf-8"))
+    page, failed = render(
+        envelope,
+        (here / "report.css").read_text(encoding="utf-8"),
+        (here / "report-template.html").read_text(encoding="utf-8"),
+        (here / "report-charts.js").read_text(encoding="utf-8"),
+    )
 
     problems = []
     if "<img" in page:
@@ -409,7 +510,9 @@ def selftest() -> int:
     if "chart-fallback" not in page:
         problems.append("chart slot has no offline fallback message")
     if "animation: false" not in page and "animation:false" not in page:
-        problems.append("chart runtime missing or animating — a static capture would show empty plots")
+        problems.append(
+            "chart runtime missing or animating — a static capture would show empty plots"
+        )
     if "stale" not in page:
         problems.append("a watermark beyond max_lag was not reported as stale")
 
@@ -417,19 +520,31 @@ def selftest() -> int:
         for p in problems:
             print(f"SELFTEST FAIL: {p}", file=sys.stderr)
         return 1
-    print("OK: self-test passed (html escaping, json-in-script escaping, numeric fidelity, "
-          "failure states, chart spec, provenance)")
+    print(
+        "OK: self-test passed (html escaping, json-in-script escaping, numeric fidelity, "
+        "failure states, chart spec, provenance)"
+    )
     return 0
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     ap.add_argument("--envelope", type=Path, help="result envelope from run_report.py")
     ap.add_argument("--out", type=Path, help="HTML file to write")
-    ap.add_argument("--summary", action="append", default=[], metavar="BLOCK=TEXT",
-                    help="attach a short AI summary to a block")
-    ap.add_argument("--extra-css", type=Path,
-                    help="append a stylesheet after the design system (per-deployment layout)")
+    ap.add_argument(
+        "--summary",
+        action="append",
+        default=[],
+        metavar="BLOCK=TEXT",
+        help="attach a short AI summary to a block",
+    )
+    ap.add_argument(
+        "--extra-css",
+        type=Path,
+        help="append a stylesheet after the design system (per-deployment layout)",
+    )
     ap.add_argument("--selftest", action="store_true")
     args = ap.parse_args()
 
@@ -463,9 +578,12 @@ def main() -> int:
             print(f"ERROR: {args.extra_css} not found", file=sys.stderr)
             return 2
         style += "\n\n/* --- extra-css --- */\n" + args.extra_css.read_text(encoding="utf-8")
-    page, failed = render(envelope, style,
-                          (assets / "report-template.html").read_text(encoding="utf-8"),
-                          (assets / "report-charts.js").read_text(encoding="utf-8"))
+    page, failed = render(
+        envelope,
+        style,
+        (assets / "report-template.html").read_text(encoding="utf-8"),
+        (assets / "report-charts.js").read_text(encoding="utf-8"),
+    )
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(page, encoding="utf-8")
     print(f"{'FAIL' if failed else 'OK'}: rendered {args.out} ({failed} failed block(s))")
